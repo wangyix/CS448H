@@ -10,12 +10,18 @@
     <ClInclude Include="dsl.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="ast.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="dsl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ast.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

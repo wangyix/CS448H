@@ -1,4 +1,6 @@
 #include "dsl.h"
+#include "ast.h"
+
 #include <stdio.h>
 #include <cstdarg>
 #include <stdexcept>
@@ -69,6 +71,9 @@ int parseLength(const char** fptr, va_list* args, int line) {
   }
   return length;
 }
+
+
+
 
 
 void dsl_printf(const char* format, ...) {
