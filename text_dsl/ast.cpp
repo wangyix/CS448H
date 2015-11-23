@@ -30,6 +30,7 @@ void RepeatedChar::print() {
 }
 
 void Block::print() {
+  length->print();
   printf("[");
   for (int i = 0; i < children.size(); ++i) {
     if (i == greedyChildIndex) {
@@ -38,6 +39,10 @@ void Block::print() {
     }
     printf(" ");
     children[i]->print();
+  }
+  if (greedyChildIndex == children.size()) {
+    printf(" ");
+    greedyChild->print();
   }
   printf(" ]^");
   topFiller->print();

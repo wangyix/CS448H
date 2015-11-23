@@ -26,7 +26,7 @@ int parseUint(const char** fptr) {
 }
 
 // Used for parsing the next char within a char or string literal (denoted by single-quotes)
-// Can escape an apostrophe; all other characters parsed as-is.
+// Can escape (with backslash) an apostrophe or a backslash; all other characters parsed as-is.
 char parseCharInsideLiteral(const char** fptr) {
   assert(**fptr != '\'');
   char c = **fptr;
@@ -35,10 +35,10 @@ char parseCharInsideLiteral(const char** fptr) {
   }
   ++*fptr;
   if (c == '\\') {
-    // If the escape is followed by an apostrophe, then they're both parsed to return an apostrophe.
-    // Otherwise, only the backslash character is parsed and returned.
-    if (**fptr == '\'') {
-      c = '\'';
+    // If the backslash is followed by an apostrophe or backslash, then both are parsed and the
+    // second character is returned. Otherwise, only the backslash is parsed and returned as-is.
+    if (**fptr == '\'' || **fptr == '\\') {
+      c = **fptr;
       ++*fptr;
     }
   }
@@ -138,26 +138,27 @@ GreedyLengthContentPtr parseGreedyLengthContent(const char** fptr, va_list* args
     RepeatedCharPtr interword(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(1, false)), ' '));
     if (**fptr == '-') {
       wordSilhouette = parseSilhouetteCharLiteral(fptr);
-      parseWhitespaces(fptr);
     }
+    parseWhitespaces(fptr);
     if (std::isdigit(**fptr) || **fptr == '#') {
       interword = parseRepeatedChar(fptr, args);
-      parseWhitespaces(fptr);
     }
+    parseWhitespaces(fptr);
     char* wordsSource = va_arg(*args, char*);
     glc = GreedyLengthContentPtr(new Words(std::string(wordsSource), std::move(interword), wordSilhouette));
   } else {
     throw std::runtime_error("Expected ' or w after {.");
   }
-
   if (**fptr != '}') {
     throw std::runtime_error("Expected }.");
   }
+  ++*fptr;
+
   return glc;
 }
 
 SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
-  assert(**fptr == '\'' || std::isdigit(**fptr));
+  assert(**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#');
   SpecifiedLengthContentPtr slc;
   if (**fptr == '\'') {
     slc = parseStringLiteral(fptr);
@@ -175,7 +176,7 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
       RepeatedCharPtr bottomFill(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(0, false)), ' '));
       parseWhitespaces(fptr);
       while (**fptr != ']') {
-        if (**fptr == '\'' || std::isdigit(**fptr)) {
+        if (**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#') {
           slcs.push_back(parseSpecifiedLengthContent(fptr, args));
         } else if (**fptr == '{') {
           if (glc) {
@@ -184,7 +185,8 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
           glc = parseGreedyLengthContent(fptr, args);
           greedyChildIndex = (int)slcs.size();
         } else {
-          throw std::runtime_error("Expected ' or digit at start of specified-length content.");
+          throw std::runtime_error("Expected ', digit, or # to begin specified-length content, "
+            "or { to begin greedy-length content.");
         }
         parseWhitespaces(fptr);
       }
@@ -218,6 +220,10 @@ void dsl_printf(const char* format, ...) {
   SpecifiedLengthContentPtr root;
   try {
     root = parseSpecifiedLengthContent(&f_at, &args);
+
+    root->print();
+    printf("\n");
+
   } catch (std::exception& e) {
     printf("%s\n", format);
     for (int i = 0; i < f_at - format; ++i) {
@@ -227,16 +233,5 @@ void dsl_printf(const char* format, ...) {
     printf("Error at %d: %s\n", f_at - format, e.what());
   }
   va_end(args);
-
-  root->print();
-  printf("\n");
 }
 
-
-using namespace std;
-
-int main() {
-  dsl_printf("100[ 1s[1s' ' {w}] '|' 2s[1s' ' {w 1' '} 1s' '] '|' 40[1s' '{w}] ]");
-  getchar();
-  return 0;
-}
