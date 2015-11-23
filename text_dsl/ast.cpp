@@ -62,7 +62,7 @@ void Block::print() {
 // -------------------------------------------------------------------------------------------------
 
 void GreedyRepeatedChar::print() {
-  printf("{%c}", c);
+  printf("{'%c'}", c);
 }
 
 void Words::print() {

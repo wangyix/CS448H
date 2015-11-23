@@ -230,6 +230,9 @@ SpecifiedLengthContentPtr parseFormat(const char** fptr, va_list* args) {
   if (**fptr != '\0') {
     throw std::runtime_error("Unexpected character before end of format string.");
   }
+  if (root->length->shares) {
+    throw std::runtime_error("Outermost block must not have shares for length.");
+  }
   return root;
 }
 
@@ -253,5 +256,7 @@ void dsl_printf(const char* format, ...) {
     printf("Error at %d: %s\n", f_at - format, e.what());
   }
   va_end(args);
+
+
 }
 
