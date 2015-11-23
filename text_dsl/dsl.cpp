@@ -89,18 +89,18 @@ SpecifiedLengthPtr parseSpecifiedLength(const char** fptr, va_list* args) {
 }
 
 // Used to specify vertical spacing fillers and interword fillers.
-RepeatedChar parseRepeatedChar(const char** fptr, va_list* args) {
+RepeatedCharPtr parseRepeatedChar(const char** fptr, va_list* args) {
   assert(std::isdigit(**fptr) || **fptr == '#');
   SpecifiedLengthPtr sl = parseSpecifiedLength(fptr, args);
   if (**fptr != '\'') {
     throw std::runtime_error("Expected char literal after length specifier.");
   }
   char c = parseCharLiteral(fptr);
-  return RepeatedChar(std::move(sl), c);
+  return RepeatedCharPtr(new RepeatedChar(std::move(sl), c));
 }
 
-RepeatedChar parseTopOrBottomFiller(const char** fptr, va_list* args, bool top) {
-  bool firstChar = top ? '^' : 'v';
+RepeatedCharPtr parseTopOrBottomFiller(const char** fptr, va_list* args, bool top) {
+  char firstChar = top ? '^' : 'v';
   assert(**fptr == firstChar);
   ++*fptr;
   if (!(std::isdigit(**fptr) || **fptr == '#')) {
@@ -135,7 +135,7 @@ GreedyLengthContentPtr parseGreedyLengthContent(const char** fptr, va_list* args
   } else if (**fptr == 'w') {
     ++*fptr;
     char wordSilhouette = '\0';
-    RepeatedChar interword(SpecifiedLengthPtr(new LiteralLength(1, false)), ' ');
+    RepeatedCharPtr interword(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(1, false)), ' '));
     if (**fptr == '-') {
       wordSilhouette = parseSilhouetteCharLiteral(fptr);
       parseWhitespaces(fptr);
@@ -145,7 +145,7 @@ GreedyLengthContentPtr parseGreedyLengthContent(const char** fptr, va_list* args
       parseWhitespaces(fptr);
     }
     char* wordsSource = va_arg(*args, char*);
-    glc = GreedyLengthContentPtr(new Words(std::string(wordsSource), interword, wordSilhouette));
+    glc = GreedyLengthContentPtr(new Words(std::string(wordsSource), std::move(interword), wordSilhouette));
   } else {
     throw std::runtime_error("Expected ' or w after {.");
   }
@@ -171,8 +171,8 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
       std::vector<SpecifiedLengthContentPtr> slcs;
       GreedyLengthContentPtr glc;
       int greedyChildIndex = -1;
-      RepeatedChar topFill(SpecifiedLengthPtr(new LiteralLength(0, false)), ' ');
-      RepeatedChar bottomFill(SpecifiedLengthPtr(new LiteralLength(0, false)), ' ');
+      RepeatedCharPtr topFill(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(0, false)), ' '));
+      RepeatedCharPtr bottomFill(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(0, false)), ' '));
       parseWhitespaces(fptr);
       while (**fptr != ']') {
         if (**fptr == '\'' || std::isdigit(**fptr)) {
@@ -182,7 +182,7 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
             throw std::runtime_error("Cannot have multiple greedy-content within a block.");
           }
           glc = parseGreedyLengthContent(fptr, args);
-          greedyChildIndex = slcs.size();
+          greedyChildIndex = (int)slcs.size();
         } else {
           throw std::runtime_error("Expected ' or digit at start of specified-length content.");
         }
@@ -200,7 +200,8 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
           topFill = parseTopOrBottomFiller(fptr, args, true);
         }
       }
-      slc.reset(new Block(std::move(sl), slcs, std::move(glc), greedyChildIndex, topFill, bottomFill));
+      slc.reset(new Block(std::move(sl), std::move(slcs), std::move(glc), greedyChildIndex,
+        std::move(topFill), std::move(bottomFill)));
     } else {
       throw std::runtime_error("Expected ' or [ after length specifier.");
     }
@@ -217,7 +218,7 @@ void dsl_printf(const char* format, ...) {
   SpecifiedLengthContentPtr root;
   try {
     root = parseSpecifiedLengthContent(&f_at, &args);
-  } catch (exception& e) {
+  } catch (std::exception& e) {
     printf("%s\n", format);
     for (int i = 0; i < f_at - format; ++i) {
       putchar(' ');

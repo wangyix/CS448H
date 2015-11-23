@@ -40,9 +40,9 @@ void Block::print() {
     children[i]->print();
   }
   printf(" ]^");
-  topFiller.print();
+  topFiller->print();
   printf("v");
-  bottomFiller.print();
+  bottomFiller->print();
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -56,6 +56,6 @@ void Words::print() {
   if (wordSilhouette) {
     printf("->%c ", wordSilhouette);
   }
-  interword.print();
+  interword->print();
   printf("}");
 }

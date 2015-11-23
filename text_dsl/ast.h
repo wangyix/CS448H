@@ -9,10 +9,12 @@ typedef int(*LengthFunc)(int);
 
 struct SpecifiedLength;
 struct SpecifiedLengthContent;
+struct RepeatedChar;
 struct GreedyLengthContent;
 
 typedef std::unique_ptr<SpecifiedLength> SpecifiedLengthPtr;
 typedef std::unique_ptr<SpecifiedLengthContent> SpecifiedLengthContentPtr;
+typedef std::unique_ptr<RepeatedChar> RepeatedCharPtr;
 typedef std::unique_ptr<GreedyLengthContent> GreedyLengthContentPtr;
 
 // -------------------------------------------------------------------------------------------------
@@ -52,7 +54,7 @@ struct SpecifiedLengthContent {
 
 struct StringLiteral : public SpecifiedLengthContent {
   StringLiteral(const std::string& str)
-    : SpecifiedLengthContent(SpecifiedLengthPtr(new LiteralLength(str.length(), false)))
+    : SpecifiedLengthContent(SpecifiedLengthPtr(new LiteralLength((int)str.length(), false)))
     , str(str) {}
   void print() override;
 
@@ -69,22 +71,22 @@ struct RepeatedChar : public SpecifiedLengthContent {
 
 struct Block : public SpecifiedLengthContent {
   Block(SpecifiedLengthPtr length,
-    std::vector<SpecifiedLengthContentPtr>& children,
+    std::vector<SpecifiedLengthContentPtr> children,
     GreedyLengthContentPtr greedyChild, int greedyChildIndex,
-    const RepeatedChar& topFiller, const RepeatedChar& bottomFiller)
+    RepeatedCharPtr topFiller, RepeatedCharPtr bottomFiller)
     : SpecifiedLengthContent(std::move(length)),
-    children(children), greedyChild(std::move(greedyChild)),
-    greedyChildIndex(greedyChild ? greedyChildIndex : -1),
-    topFiller(topFiller), bottomFiller(bottomFiller) {
-    assert(!greedyChild || (0 <= greedyChildIndex && greedyChildIndex <= children.size));
+    children(std::move(children)), greedyChild(std::move(greedyChild)),
+    greedyChildIndex(this->greedyChild ? greedyChildIndex : -1),
+    topFiller(std::move(topFiller)), bottomFiller(std::move(bottomFiller)) {
+    assert(!greedyChild || (0 <= greedyChildIndex && greedyChildIndex <= children.size()));
   }
   void print() override;
 
   std::vector<SpecifiedLengthContentPtr> children;
   GreedyLengthContentPtr greedyChild;
   int greedyChildIndex;
-  RepeatedChar topFiller;
-  RepeatedChar bottomFiller;
+  RepeatedCharPtr topFiller;
+  RepeatedCharPtr bottomFiller;
 };
 
 // -------------------------------------------------------------------------------------------------
@@ -102,13 +104,13 @@ struct GreedyRepeatedChar : public GreedyLengthContent {
 };
 
 struct Words : public GreedyLengthContent {
-  Words(const std::string& source, const RepeatedChar& interword, char wordSilhouette = '\0')
+  Words(const std::string& source, RepeatedCharPtr interword, char wordSilhouette = '\0')
     : source(source), interword(std::move(interword)),
     wordSilhouette(wordSilhouette) {}
   void print() override;
 
   std::string source;
-  RepeatedChar interword;
+  RepeatedCharPtr interword;
   char wordSilhouette;        // use '\0' if unused
 };
 
