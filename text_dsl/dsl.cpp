@@ -110,8 +110,10 @@ RepeatedCharPtr parseTopOrBottomFiller(const char** fptr, va_list* args, bool to
   assert(**fptr == firstChar);
   ++*fptr;
   parseWhitespaces(fptr); // ^, v are tokens
-  if (!(std::isdigit(**fptr) || **fptr == '#')) {   //|| **fptr == '\'')) {
-    throw std::runtime_error("Expected # or digit at start of vertical filler specifier.");
+  // Vertical fillers must be repeated chars with literal length. Also, the shorthand version where
+  // the length is dropped is not allowed.
+  if (!(std::isdigit(**fptr))) {  // || **fptr == '#' || **fptr == '\'')) {
+    throw std::runtime_error("Expected digit at start of vertical filler specifier.");
   }
   return parseRepeatedChar(fptr, args);
 }
@@ -147,7 +149,8 @@ GreedyLengthContentPtr parseGreedyLengthContent(const char** fptr, va_list* args
     if (**fptr == '-') {
       wordSilhouette = parseSilhouetteCharLiteral(fptr);
     }
-    if (std::isdigit(**fptr) || **fptr == '#' || **fptr == '\'') {
+    // Interword filler must be repeated char with literal length.
+    if (std::isdigit(**fptr) || **fptr == '\'') { // || **fptr == '#') {
       interword = parseRepeatedChar(fptr, args);
     }
     char* wordsSource = va_arg(*args, char*);
@@ -156,7 +159,7 @@ GreedyLengthContentPtr parseGreedyLengthContent(const char** fptr, va_list* args
     throw std::runtime_error("Expected ' or w after {.");
   }
   if (**fptr != '}') {
-    throw std::runtime_error("Expected }.");
+    throw std::runtime_error("Expected ->, digit, char literal, or }.");
   }
   ++*fptr;
   parseWhitespaces(fptr); // } is a token
