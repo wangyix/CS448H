@@ -9,13 +9,21 @@ typedef int(*LengthFunc)(int);
 
 struct SpecifiedLength;
 struct SpecifiedLengthContent;
-struct RepeatedChar;
 struct GreedyLengthContent;
 
 typedef std::unique_ptr<SpecifiedLength> SpecifiedLengthPtr;
 typedef std::unique_ptr<SpecifiedLengthContent> SpecifiedLengthContentPtr;
-typedef std::unique_ptr<RepeatedChar> RepeatedCharPtr;
 typedef std::unique_ptr<GreedyLengthContent> GreedyLengthContentPtr;
+
+// Used for specifying interword and vertical fillers. It's a RepeatedChar with a literal length.
+struct Filler {
+  Filler(int length, bool shares, char c) : length(length), shares(shares), c(c) {}
+  void print();
+
+  int length;
+  bool shares;
+  char c;
+};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -73,11 +81,11 @@ struct Block : public SpecifiedLengthContent {
   Block(SpecifiedLengthPtr length,
     std::vector<SpecifiedLengthContentPtr> children,
     GreedyLengthContentPtr greedyChild, int greedyChildIndex,
-    RepeatedCharPtr topFiller, RepeatedCharPtr bottomFiller)
+    const Filler& topFiller, const Filler& bottomFiller)
     : SpecifiedLengthContent(std::move(length)),
     children(std::move(children)), greedyChild(std::move(greedyChild)),
     greedyChildIndex(this->greedyChild ? greedyChildIndex : -1),
-    topFiller(std::move(topFiller)), bottomFiller(std::move(bottomFiller)) {
+    topFiller(topFiller), bottomFiller(bottomFiller) {
     assert(!greedyChild || (0 <= greedyChildIndex && greedyChildIndex <= children.size()));
   }
   void print() override;
@@ -85,8 +93,8 @@ struct Block : public SpecifiedLengthContent {
   std::vector<SpecifiedLengthContentPtr> children;
   GreedyLengthContentPtr greedyChild;
   int greedyChildIndex;
-  RepeatedCharPtr topFiller;
-  RepeatedCharPtr bottomFiller;
+  Filler topFiller;
+  Filler bottomFiller;
 };
 
 // -------------------------------------------------------------------------------------------------
@@ -104,13 +112,13 @@ struct GreedyRepeatedChar : public GreedyLengthContent {
 };
 
 struct Words : public GreedyLengthContent {
-  Words(const std::string& source, RepeatedCharPtr interword, char wordSilhouette = '\0')
-    : source(source), interword(std::move(interword)),
+  Words(const std::string& source, const Filler& interword, char wordSilhouette = '\0')
+    : source(source), interword(interword),
     wordSilhouette(wordSilhouette) {}
   void print() override;
 
   std::string source;
-  RepeatedCharPtr interword;
+  Filler interword;
   char wordSilhouette;        // use '\0' if unused
 };
 

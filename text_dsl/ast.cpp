@@ -2,6 +2,16 @@
 
 #include <stdio.h>
 
+void Filler::print() {
+  printf("%d", length);
+  if (shares) {
+    printf("s");
+  }
+  printf("'%c'", c);
+}
+
+// -------------------------------------------------------------------------------------------------
+
 void LiteralLength::print() {
   printf("%d", value);
   if (shares) {
@@ -17,7 +27,6 @@ void FunctionLength::print() {
 }
 
 // -------------------------------------------------------------------------------------------------
-
 
 void StringLiteral::print() {
   length->print();
@@ -45,9 +54,9 @@ void Block::print() {
     greedyChild->print();
   }
   printf(" ]^");
-  topFiller->print();
+  topFiller.print();
   printf("v");
-  bottomFiller->print();
+  bottomFiller.print();
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -62,6 +71,6 @@ void Words::print() {
     printf("->'%c'", wordSilhouette);
   } 
   printf(" ");
-  interword->print();
+  interword.print();
   printf("}");
 }

@@ -91,31 +91,36 @@ SpecifiedLengthPtr parseSpecifiedLength(const char** fptr, va_list* args) { // T
   return sl;
 }
 
-// Used to specify vertical spacing fillers and interword fillers.
-RepeatedCharPtr parseRepeatedChar(const char** fptr, va_list* args) {
-  assert(std::isdigit(**fptr) || **fptr == '#' || **fptr == '\'');
-  SpecifiedLengthPtr sl(new LiteralLength(1, false));
-  if (std::isdigit(**fptr) || **fptr == '#') {
-    sl = parseSpecifiedLength(fptr, args);
+// A RepeatedChar with literal length. Can also just be a char literal, which has implied length 1
+Filler parseFiller(const char** fptr, va_list* args) {
+  assert(std::isdigit(**fptr) || **fptr == '\'');
+  int length = 1;
+  bool shares = false;
+  if (std::isdigit(**fptr)) {
+    length = parseUint(fptr);
+    if (**fptr == 's') {
+      ++*fptr;
+      shares = true;
+    }
+    parseWhitespaces(fptr); // literal length is a token
   }
   if (**fptr != '\'') {
     throw std::runtime_error("Expected char literal.");
   }
   char c = parseCharLiteral(fptr);
-  return RepeatedCharPtr(new RepeatedChar(std::move(sl), c));
+  return Filler(length, shares, c);
 }
 
-RepeatedCharPtr parseTopOrBottomFiller(const char** fptr, va_list* args, bool top) {
+Filler parseTopOrBottomFiller(const char** fptr, va_list* args, bool top) {
   char firstChar = top ? '^' : 'v';
   assert(**fptr == firstChar);
   ++*fptr;
   parseWhitespaces(fptr); // ^, v are tokens
-  // Vertical fillers must be repeated chars with literal length. Also, the shorthand version where
-  // the length is dropped is not allowed.
-  if (!(std::isdigit(**fptr))) {  // || **fptr == '#' || **fptr == '\'')) {
+  // The shorthand version of the filler where the length is dropped is not allowed.
+  if (!(std::isdigit(**fptr))) {  // || **fptr == '\'')) {
     throw std::runtime_error("Expected digit at start of vertical filler specifier.");
   }
-  return parseRepeatedChar(fptr, args);
+  return parseFiller(fptr, args);
 }
 
 char parseSilhouetteCharLiteral(const char** fptr) {
@@ -145,13 +150,12 @@ GreedyLengthContentPtr parseGreedyLengthContent(const char** fptr, va_list* args
     ++*fptr;
     parseWhitespaces(fptr); // w is a token
     char wordSilhouette = '\0';
-    RepeatedCharPtr interword(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(1, false)), ' '));
+    Filler interword(1, false, ' ');    // 1' ' default
     if (**fptr == '-') {
       wordSilhouette = parseSilhouetteCharLiteral(fptr);
     }
-    // Interword filler must be repeated char with literal length.
-    if (std::isdigit(**fptr) || **fptr == '\'') { // || **fptr == '#') {
-      interword = parseRepeatedChar(fptr, args);
+    if (std::isdigit(**fptr) || **fptr == '\'') {
+      interword = parseFiller(fptr, args);
     }
     char* wordsSource = va_arg(*args, char*);
     glc = GreedyLengthContentPtr(new Words(std::string(wordsSource), std::move(interword), wordSilhouette));
@@ -159,7 +163,7 @@ GreedyLengthContentPtr parseGreedyLengthContent(const char** fptr, va_list* args
     throw std::runtime_error("Expected ' or w after {.");
   }
   if (**fptr != '}') {
-    throw std::runtime_error("Expected ->, digit, char literal, or }.");
+    throw std::runtime_error("Expected }.");
   }
   ++*fptr;
   parseWhitespaces(fptr); // } is a token
@@ -182,8 +186,8 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
       std::vector<SpecifiedLengthContentPtr> slcs;
       GreedyLengthContentPtr glc;
       int greedyChildIndex = -1;
-      RepeatedCharPtr topFill(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(0, false)), ' '));
-      RepeatedCharPtr bottomFill(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(0, false)), ' '));
+      Filler topFill(0, false, ' ');    // 0' ' default
+      Filler bottomFill(0, false, ' '); // 0' ' default
       while (**fptr != ']') {
         if (**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#') {
           slcs.push_back(parseSpecifiedLengthContent(fptr, args));
@@ -212,7 +216,7 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
         }
       }
       slc.reset(new Block(std::move(sl), std::move(slcs), std::move(glc), greedyChildIndex,
-        std::move(topFill), std::move(bottomFill)));
+        topFill, bottomFill));
     } else {
       throw std::runtime_error("Expected ' or [ after length specifier.");
     }
