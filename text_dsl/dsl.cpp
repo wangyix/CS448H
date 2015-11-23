@@ -138,36 +138,30 @@ char parseSilhouetteCharLiteral(const char** fptr) {
 }
 
 
-GreedyLengthContentPtr parseGreedyLengthContent(const char** fptr, va_list* args) {
+Words parseGreedyLengthContent(const char** fptr, va_list* args) {
   assert(**fptr == '{');
   ++*fptr;
   parseWhitespaces(fptr); // { is a token
-  GreedyLengthContentPtr glc;
-  if (**fptr == '\'') {
-    char c = parseCharLiteral(fptr);
-    glc = GreedyLengthContentPtr(new GreedyRepeatedChar(c));
-  } else if (**fptr == 'w') {
+  Words words;
+  if (**fptr == 'w') {
     ++*fptr;
     parseWhitespaces(fptr); // w is a token
-    char wordSilhouette = '\0';
-    Filler interword(1, false, ' ');    // 1' ' default
     if (**fptr == '-') {
-      wordSilhouette = parseSilhouetteCharLiteral(fptr);
+      words.wordSilhouette = parseSilhouetteCharLiteral(fptr);
     }
     if (std::isdigit(**fptr) || **fptr == '\'') {
-      interword = parseFiller(fptr, args);
+      words.interword = parseFiller(fptr, args);
     }
-    char* wordsSource = va_arg(*args, char*);
-    glc = GreedyLengthContentPtr(new Words(std::string(wordsSource), std::move(interword), wordSilhouette));
+    words.source = std::string(va_arg(*args, char*));
   } else {
-    throw std::runtime_error("Expected ' or w after {.");
+    throw std::runtime_error("Expected w after {.");
   }
   if (**fptr != '}') {
     throw std::runtime_error("Expected }.");
   }
   ++*fptr;
   parseWhitespaces(fptr); // } is a token
-  return glc;
+  return words;
 }
 
 SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
@@ -179,24 +173,20 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
     SpecifiedLengthPtr sl = parseSpecifiedLength(fptr, args);
     if (**fptr == '\'') {
       char c = parseCharLiteral(fptr);
-      slc = SpecifiedLengthContentPtr(new RepeatedChar(std::move(sl), c));
+      slc.reset(new RepeatedChar(std::move(sl), c));
     } else if (**fptr == '[') {
       ++*fptr;
       parseWhitespaces(fptr); // [ is a token
-      std::vector<SpecifiedLengthContentPtr> slcs;
-      GreedyLengthContentPtr glc;
-      int greedyChildIndex = -1;
-      Filler topFill(0, false, ' ');    // 0' ' default
-      Filler bottomFill(0, false, ' '); // 0' ' default
+      Block* block = new Block(std::move(sl));
+      slc.reset(block);
       while (**fptr != ']') {
         if (**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#') {
-          slcs.push_back(parseSpecifiedLengthContent(fptr, args));
+          block->addChild(parseSpecifiedLengthContent(fptr, args));
         } else if (**fptr == '{') {
-          if (glc) {
+          if (block->hasGreedyChild()) {
             throw std::runtime_error("Cannot have multiple greedy-content within a block.");
           }
-          glc = parseGreedyLengthContent(fptr, args);
-          greedyChildIndex = (int)slcs.size();
+          block->addGreedyChild(parseGreedyLengthContent(fptr, args));
         } else {
           throw std::runtime_error("Expected ', digit, or # to begin specified-length content, "
             "or { to begin greedy-length content.");
@@ -205,18 +195,16 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
       ++*fptr;
       parseWhitespaces(fptr); // ] is a token
       if (**fptr == '^') {
-        topFill = parseTopOrBottomFiller(fptr, args, true);
+        block->topFiller = parseTopOrBottomFiller(fptr, args, true);
         if (**fptr == 'v') {
-          bottomFill = parseTopOrBottomFiller(fptr, args, false);
+          block->bottomFiller = parseTopOrBottomFiller(fptr, args, false);
         }
       } else if (**fptr == 'v') {
-        bottomFill = parseTopOrBottomFiller(fptr, args, false);
+        block->bottomFiller = parseTopOrBottomFiller(fptr, args, false);
         if (**fptr == '^') {
-          topFill = parseTopOrBottomFiller(fptr, args, true);
+          block->topFiller = parseTopOrBottomFiller(fptr, args, true);
         }
       }
-      slc.reset(new Block(std::move(sl), std::move(slcs), std::move(glc), greedyChildIndex,
-        topFill, bottomFill));
     } else {
       throw std::runtime_error("Expected ' or [ after length specifier.");
     }

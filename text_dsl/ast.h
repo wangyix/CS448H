@@ -9,11 +9,10 @@ typedef int(*LengthFunc)(int);
 
 struct SpecifiedLength;
 struct SpecifiedLengthContent;
-struct GreedyLengthContent;
 
 typedef std::unique_ptr<SpecifiedLength> SpecifiedLengthPtr;
 typedef std::unique_ptr<SpecifiedLengthContent> SpecifiedLengthContentPtr;
-typedef std::unique_ptr<GreedyLengthContent> GreedyLengthContentPtr;
+
 
 // Used for specifying interword and vertical fillers. It's a RepeatedChar with a literal length.
 struct Filler {
@@ -24,6 +23,19 @@ struct Filler {
   bool shares;
   char c;
 };
+
+struct Words {
+  Words() : interword(1, false, ' '), wordSilhouette('\0') {}
+  Words(const std::string& source, const Filler& interword, char wordSilhouette = '\0')
+    : source(source), interword(interword),
+    wordSilhouette(wordSilhouette) {}
+  void print();
+
+  std::string source;
+  Filler interword;
+  char wordSilhouette;        // use '\0' if unused
+};
+
 
 // -------------------------------------------------------------------------------------------------
 
@@ -78,48 +90,19 @@ struct RepeatedChar : public SpecifiedLengthContent {
 };
 
 struct Block : public SpecifiedLengthContent {
-  Block(SpecifiedLengthPtr length,
-    std::vector<SpecifiedLengthContentPtr> children,
-    GreedyLengthContentPtr greedyChild, int greedyChildIndex,
-    const Filler& topFiller, const Filler& bottomFiller)
+  Block(SpecifiedLengthPtr length)
     : SpecifiedLengthContent(std::move(length)),
-    children(std::move(children)), greedyChild(std::move(greedyChild)),
-    greedyChildIndex(this->greedyChild ? greedyChildIndex : -1),
-    topFiller(topFiller), bottomFiller(bottomFiller) {
-    assert(!greedyChild || (0 <= greedyChildIndex && greedyChildIndex <= children.size()));
-  }
+    greedyChildIndex(-1), topFiller(0, false, ' '), bottomFiller(0, false, ' ') {}
+  void addChild(SpecifiedLengthContentPtr child);
+  void addGreedyChild(const Words& words);
+  bool hasGreedyChild() const;
   void print() override;
 
   std::vector<SpecifiedLengthContentPtr> children;
-  GreedyLengthContentPtr greedyChild;
-  int greedyChildIndex;
+  int greedyChildIndex;   // use value < 0 if no greedy child
+  Words greedyChild;
   Filler topFiller;
   Filler bottomFiller;
-};
-
-// -------------------------------------------------------------------------------------------------
-
-struct GreedyLengthContent {
-  virtual ~GreedyLengthContent() {};
-  virtual void print() = 0;
-};
-
-struct GreedyRepeatedChar : public GreedyLengthContent {
-  GreedyRepeatedChar(char c) : c(c) {}
-  void print() override;
-
-  char c;
-};
-
-struct Words : public GreedyLengthContent {
-  Words(const std::string& source, const Filler& interword, char wordSilhouette = '\0')
-    : source(source), interword(interword),
-    wordSilhouette(wordSilhouette) {}
-  void print() override;
-
-  std::string source;
-  Filler interword;
-  char wordSilhouette;        // use '\0' if unused
 };
 
 #endif

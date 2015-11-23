@@ -10,6 +10,16 @@ void Filler::print() {
   printf("'%c'", c);
 }
 
+void Words::print() {
+  printf("{w");
+  if (wordSilhouette) {
+    printf("->'%c'", wordSilhouette);
+  }
+  printf(" ");
+  interword.print();
+  printf("}");
+}
+
 // -------------------------------------------------------------------------------------------------
 
 void LiteralLength::print() {
@@ -38,39 +48,31 @@ void RepeatedChar::print() {
   printf("'%c'", c);
 }
 
+void Block::addChild(SpecifiedLengthContentPtr child) {
+  children.push_back(std::move(child));
+}
+void Block::addGreedyChild(const Words& words) {
+  greedyChildIndex = children.size();
+  greedyChild = words;
+}
+bool Block::hasGreedyChild() const {
+  return (greedyChildIndex >= 0);
+}
 void Block::print() {
   length->print();
   printf("[");
-  for (int i = 0; i < children.size(); ++i) {
+  for (int i = 0; i <= children.size(); ++i) {
     if (i == greedyChildIndex) {
       printf(" ");
-      greedyChild->print();
+      greedyChild.print();
     }
-    printf(" ");
-    children[i]->print();
-  }
-  if (greedyChildIndex == children.size()) {
-    printf(" ");
-    greedyChild->print();
+    if (i != children.size()) {
+      printf(" ");
+      children[i]->print();
+    }
   }
   printf(" ]^");
   topFiller.print();
   printf("v");
   bottomFiller.print();
-}
-
-// -------------------------------------------------------------------------------------------------
-
-void GreedyRepeatedChar::print() {
-  printf("{'%c'}", c);
-}
-
-void Words::print() {
-  printf("{w");
-  if (wordSilhouette) {
-    printf("->'%c'", wordSilhouette);
-  } 
-  printf(" ");
-  interword.print();
-  printf("}");
 }
