@@ -4,21 +4,24 @@
 #include <stdio.h>
 #include <cstdarg>
 #include <stdexcept>
+#include <cctype>
 #include <assert.h>
 
 
-bool isDigit(char c) {
-  return ('0' <= c && c <= '9');
+void parseWhitespaces(const char** fptr) {
+  while (std::isspace(**fptr)) {
+    ++*fptr;
+  }
 }
 
 int parseUint(const char** fptr) {
-  assert(isDigit(**fptr));
+  assert(std::isdigit(**fptr));
   int value = 0;
   do {
     int digit = **fptr - '0';
     value = value * 10 + digit;
     ++*fptr;
-  } while (isDigit(**fptr));
+  } while (std::isdigit(**fptr));
   return value;
 }
 
@@ -39,13 +42,13 @@ char parseCharLiteral(const char** fptr) {
   ++*fptr;
   char c = parseChar(&*fptr);
   if (**fptr != '\'') {
-    throw std::runtime_error("Expected closing \"'\" for char literal.");
+    throw std::runtime_error("Expected closing ' for char literal.");
   }
   ++*fptr;
   return c;
 }
 
-std::string parseStringLiteral(const char** fptr) {
+SpecifiedLengthContentPtr parseStringLiteral(const char** fptr) {
   assert(**fptr == '\'');
   ++*fptr;
   const char* strBegin = *fptr;
@@ -54,25 +57,58 @@ std::string parseStringLiteral(const char** fptr) {
     str += parseChar(&*fptr);
   }
   ++*fptr;
-  return str;
+  return SpecifiedLengthContentPtr(new StringLiteral(str));
 }
 
-typedef int(*LengthFunc)(int);
-
-int parseLength(const char** fptr, va_list* args, int line) {
-  assert(isDigit(**fptr) || **fptr == '#');
-  int length;
+SpecifiedLengthPtr parseSpecifiedLength(const char** fptr, va_list* args) {
+  assert(isdigit(**fptr) || **fptr == '#');
+  SpecifiedLengthPtr sl;
   if (**fptr == '#') {
-    LengthFunc lengthFunc = va_arg(*args, LengthFunc);
-    length = (*lengthFunc)(line);
+    sl.reset(new FunctionLength(va_arg(*args, LengthFunc)));
     ++*fptr;
   } else {
-    length = parseUint(&*fptr);
+    sl.reset(new LiteralLength(parseUint(&*fptr)));
   }
-  return length;
+  if (**fptr == 's') {
+    sl->shares = true;
+    ++*fptr;
+  }
+  return sl;
 }
 
+/*SpecifiedLengthContent* parseSpecifiedLengthContent(const char** fptr, va_list* args);
 
+Block* parseBlock(const char** fptr, va_list* args) {
+  assert(**fptr == '[');
+  while 
+}*/
+
+SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
+  assert(**fptr == '\'' || isdigit(**fptr));
+  SpecifiedLengthContentPtr slc;
+  if (**fptr == '\'') {
+    slc = parseStringLiteral(fptr);
+  } else {
+    SpecifiedLength* sl = parseSpecifiedLength(fptr, args);
+    if (**fptr == '\'') {
+      char c = parseCharLiteral(fptr);
+      slc = new RepeatedChar(sl, c);
+    } else if (**fptr == '[') {
+      parseWhitespaces(fptr);
+      while (**fptr != ']') {
+        if (!(**fptr == '\'' || isdigit(**fptr))) {
+          delete sl;
+          throw std::runtime_error("Expected ' or digit at start of specified-length content.");
+        }
+
+      }
+    } else {
+      delete sl;
+      throw std::runtime_error("Expected ' or [ after length specifier.");
+    }
+  }
+  return slc;
+}
 
 
 
