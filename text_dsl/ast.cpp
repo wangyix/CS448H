@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 
-void Filler::print() {
+void Filler::print() const {
   printf("%d", length);
   if (shares) {
     printf("s");
@@ -10,7 +10,7 @@ void Filler::print() {
   printf("'%c'", c);
 }
 
-void Words::print() {
+void Words::print() const {
   printf("{w");
   if (wordSilhouette) {
     printf("->'%c'", wordSilhouette);
@@ -22,14 +22,14 @@ void Words::print() {
 
 // -------------------------------------------------------------------------------------------------
 
-void LiteralLength::print() {
+void LiteralLength::print() const {
   printf("%d", value);
   if (shares) {
     printf("s");
   }
 }
 
-void FunctionLength::print() {
+void FunctionLength::print() const {
   printf("#");
   if (shares) {
     printf("s");
@@ -38,12 +38,12 @@ void FunctionLength::print() {
 
 // -------------------------------------------------------------------------------------------------
 
-void StringLiteral::print() {
+void StringLiteral::print() const {
   length->print();
   printf("'%s'", str.c_str());
 }
 
-void RepeatedChar::print() {
+void RepeatedChar::print() const {
   length->print();
   printf("'%c'", c);
 }
@@ -58,7 +58,7 @@ void Block::addGreedyChild(const Words& words) {
 bool Block::hasGreedyChild() const {
   return (greedyChildIndex >= 0);
 }
-void Block::print() {
+void Block::print() const {
   length->print();
   printf("[");
   for (int i = 0; i <= children.size(); ++i) {
