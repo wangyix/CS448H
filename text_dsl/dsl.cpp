@@ -99,6 +99,15 @@ RepeatedChar parseRepeatedChar(const char** fptr, va_list* args) {
   return RepeatedChar(std::move(sl), c);
 }
 
+RepeatedChar parseTopOrBottomFiller(const char** fptr, va_list* args, bool top) {
+  bool firstChar = top ? '^' : 'v';
+  assert(**fptr == firstChar);
+  ++*fptr;
+  if (!(std::isdigit(**fptr) || **fptr == '#')) {
+    throw std::runtime_error("Expected ' or digit at start of specified-length content.");
+  }
+  return parseRepeatedChar(fptr, args);
+}
 
 char parseSilhouetteCharLiteral(const char** fptr) {
   assert(**fptr == '-');
@@ -161,6 +170,7 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
       ++*fptr;
       std::vector<SpecifiedLengthContentPtr> slcs;
       GreedyLengthContentPtr glc;
+      int greedyChildIndex = -1;
       RepeatedChar topFill(SpecifiedLengthPtr(new LiteralLength(0, false)), ' ');
       RepeatedChar bottomFill(SpecifiedLengthPtr(new LiteralLength(0, false)), ' ');
       parseWhitespaces(fptr);
@@ -172,17 +182,25 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
             throw std::runtime_error("Cannot have multiple greedy-content within a block.");
           }
           glc = parseGreedyLengthContent(fptr, args);
+          greedyChildIndex = slcs.size();
         } else {
           throw std::runtime_error("Expected ' or digit at start of specified-length content.");
         }
         parseWhitespaces(fptr);
       }
-      if (**fptr == '^' || **fptr == 'v') {
-
-      } else {
-        ++*fptr;
+      ++*fptr;
+      if (**fptr == '^') {
+        topFill = parseTopOrBottomFiller(fptr, args, true);
+        if (**fptr == 'v') {
+          bottomFill = parseTopOrBottomFiller(fptr, args, false);
+        }
+      } else if (**fptr == 'v') {
+        bottomFill = parseTopOrBottomFiller(fptr, args, false);
+        if (**fptr == '^') {
+          topFill = parseTopOrBottomFiller(fptr, args, true);
+        }
       }
-      slc.reset(new Block(std::move(sl), slcs, std::move(glc), topFill, bottomFill));
+      slc.reset(new Block(std::move(sl), slcs, std::move(glc), greedyChildIndex, topFill, bottomFill));
     } else {
       throw std::runtime_error("Expected ' or [ after length specifier.");
     }
@@ -195,35 +213,29 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
 void dsl_printf(const char* format, ...) {
   va_list args;
   va_start(args, format);
-
   const char* f_at = format;
-  while (*f_at != '\0') {
-    int l = parseLength(&f_at, &args, 13);
-    printf("%d\n", l);
+  SpecifiedLengthContentPtr root;
+  try {
+    root = parseSpecifiedLengthContent(&f_at, &args);
+  } catch (exception& e) {
+    printf("%s\n", format);
+    for (int i = 0; i < f_at - format; ++i) {
+      putchar(' ');
+    }
+    printf("^\n");
+    printf("Error at %d: %s\n", f_at - format, e.what());
   }
-
   va_end(args);
+
+  root->print();
+  printf("\n");
 }
-
-
 
 
 using namespace std;
 
 int main() {
-  char* format = "'fugg'3745ggggg";
-  const char* f_at = format;
-  string str;
-  int num;
-  try {
-     str = parseStringLiteral(&f_at);
-     num = parseUint(&f_at);
-  } catch (exception& e) {
-    printf("Error at %d: %s\n", f_at - format, e.what());
-  }
-  printf("str = %s\n", str.c_str());
-  printf("num = %d\n", num);
-
+  dsl_printf("100[ 1s[1s' ' {w}] '|' 2s[1s' ' {w 1' '} 1s' '] '|' 40[1s' '{w}] ]");
   getchar();
   return 0;
 }
