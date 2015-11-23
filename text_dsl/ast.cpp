@@ -57,10 +57,11 @@ void GreedyRepeatedChar::print() {
 }
 
 void Words::print() {
-  printf("{w ");
+  printf("{w");
   if (wordSilhouette) {
-    printf("->%c ", wordSilhouette);
-  }
+    printf("->'%c'", wordSilhouette);
+  } 
+  printf(" ");
   interword->print();
   printf("}");
 }

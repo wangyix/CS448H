@@ -7,7 +7,7 @@
 #include <cctype>
 #include <assert.h>
 
-
+// Should be called after any token is parsed so that fptr is moved to the start of the next token
 void parseWhitespaces(const char** fptr) {
   while (std::isspace(**fptr)) {
     ++*fptr;
@@ -45,7 +45,7 @@ char parseCharInsideLiteral(const char** fptr) {
   return c;
 }
 
-char parseCharLiteral(const char** fptr) {
+char parseCharLiteral(const char** fptr) {  // TOKEN
   assert(**fptr == '\'');
   ++*fptr;
   if (**fptr == '\'') {
@@ -56,10 +56,11 @@ char parseCharLiteral(const char** fptr) {
     throw std::runtime_error("Expected closing ' for char literal.");
   }
   ++*fptr;
+  parseWhitespaces(fptr);
   return c;
 }
 
-SpecifiedLengthContentPtr parseStringLiteral(const char** fptr) {
+SpecifiedLengthContentPtr parseStringLiteral(const char** fptr) { // TOKEN
   assert(**fptr == '\'');
   ++*fptr;
   const char* strBegin = *fptr;
@@ -68,11 +69,12 @@ SpecifiedLengthContentPtr parseStringLiteral(const char** fptr) {
     str += parseCharInsideLiteral(&*fptr);
   }
   ++*fptr;
+  parseWhitespaces(fptr);
   return SpecifiedLengthContentPtr(new StringLiteral(str));
 }
 
 
-SpecifiedLengthPtr parseSpecifiedLength(const char** fptr, va_list* args) {
+SpecifiedLengthPtr parseSpecifiedLength(const char** fptr, va_list* args) { // TOKEN
   assert(std::isdigit(**fptr) || **fptr == '#');
   SpecifiedLengthPtr sl;
   if (**fptr == '#') {
@@ -85,15 +87,19 @@ SpecifiedLengthPtr parseSpecifiedLength(const char** fptr, va_list* args) {
     sl->shares = true;
     ++*fptr;
   }
+  parseWhitespaces(fptr);
   return sl;
 }
 
 // Used to specify vertical spacing fillers and interword fillers.
 RepeatedCharPtr parseRepeatedChar(const char** fptr, va_list* args) {
-  assert(std::isdigit(**fptr) || **fptr == '#');
-  SpecifiedLengthPtr sl = parseSpecifiedLength(fptr, args);
+  assert(std::isdigit(**fptr) || **fptr == '#' || **fptr == '\'');
+  SpecifiedLengthPtr sl(new LiteralLength(1, false));
+  if (std::isdigit(**fptr) || **fptr == '#') {
+    sl = parseSpecifiedLength(fptr, args);
+  }
   if (**fptr != '\'') {
-    throw std::runtime_error("Expected char literal after length specifier.");
+    throw std::runtime_error("Expected char literal.");
   }
   char c = parseCharLiteral(fptr);
   return RepeatedCharPtr(new RepeatedChar(std::move(sl), c));
@@ -103,8 +109,9 @@ RepeatedCharPtr parseTopOrBottomFiller(const char** fptr, va_list* args, bool to
   char firstChar = top ? '^' : 'v';
   assert(**fptr == firstChar);
   ++*fptr;
-  if (!(std::isdigit(**fptr) || **fptr == '#')) {
-    throw std::runtime_error("Expected ' or digit at start of specified-length content.");
+  parseWhitespaces(fptr); // ^, v are tokens
+  if (!(std::isdigit(**fptr) || **fptr == '#')) {   //|| **fptr == '\'')) {
+    throw std::runtime_error("Expected # or digit at start of vertical filler specifier.");
   }
   return parseRepeatedChar(fptr, args);
 }
@@ -113,11 +120,12 @@ char parseSilhouetteCharLiteral(const char** fptr) {
   assert(**fptr == '-');
   ++*fptr;
   if (**fptr != '>') {
-    throw std::runtime_error("Expected > after -.");
+    throw std::runtime_error("Expected > immediately after -.");
   }
   ++*fptr;
+  parseWhitespaces(fptr); // -> is a token
   if (**fptr != '\'') {
-    throw std::runtime_error("Expected ' after >");
+    throw std::runtime_error("Expected char literal after ->.");
   }
   return parseCharLiteral(fptr);
 }
@@ -126,24 +134,22 @@ char parseSilhouetteCharLiteral(const char** fptr) {
 GreedyLengthContentPtr parseGreedyLengthContent(const char** fptr, va_list* args) {
   assert(**fptr == '{');
   ++*fptr;
+  parseWhitespaces(fptr); // { is a token
   GreedyLengthContentPtr glc;
-  parseWhitespaces(fptr);
   if (**fptr == '\'') {
     char c = parseCharLiteral(fptr);
     glc = GreedyLengthContentPtr(new GreedyRepeatedChar(c));
-    parseWhitespaces(fptr);
   } else if (**fptr == 'w') {
     ++*fptr;
+    parseWhitespaces(fptr); // w is a token
     char wordSilhouette = '\0';
     RepeatedCharPtr interword(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(1, false)), ' '));
     if (**fptr == '-') {
       wordSilhouette = parseSilhouetteCharLiteral(fptr);
     }
-    parseWhitespaces(fptr);
-    if (std::isdigit(**fptr) || **fptr == '#') {
+    if (std::isdigit(**fptr) || **fptr == '#' || **fptr == '\'') {
       interword = parseRepeatedChar(fptr, args);
     }
-    parseWhitespaces(fptr);
     char* wordsSource = va_arg(*args, char*);
     glc = GreedyLengthContentPtr(new Words(std::string(wordsSource), std::move(interword), wordSilhouette));
   } else {
@@ -153,7 +159,7 @@ GreedyLengthContentPtr parseGreedyLengthContent(const char** fptr, va_list* args
     throw std::runtime_error("Expected }.");
   }
   ++*fptr;
-
+  parseWhitespaces(fptr); // } is a token
   return glc;
 }
 
@@ -169,12 +175,12 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
       slc = SpecifiedLengthContentPtr(new RepeatedChar(std::move(sl), c));
     } else if (**fptr == '[') {
       ++*fptr;
+      parseWhitespaces(fptr); // [ is a token
       std::vector<SpecifiedLengthContentPtr> slcs;
       GreedyLengthContentPtr glc;
       int greedyChildIndex = -1;
       RepeatedCharPtr topFill(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(0, false)), ' '));
       RepeatedCharPtr bottomFill(new RepeatedChar(SpecifiedLengthPtr(new LiteralLength(0, false)), ' '));
-      parseWhitespaces(fptr);
       while (**fptr != ']') {
         if (**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#') {
           slcs.push_back(parseSpecifiedLengthContent(fptr, args));
@@ -188,9 +194,9 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
           throw std::runtime_error("Expected ', digit, or # to begin specified-length content, "
             "or { to begin greedy-length content.");
         }
-        parseWhitespaces(fptr);
       }
       ++*fptr;
+      parseWhitespaces(fptr); // ] is a token
       if (**fptr == '^') {
         topFill = parseTopOrBottomFiller(fptr, args, true);
         if (**fptr == 'v') {
@@ -211,7 +217,14 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
   return slc;
 }
 
-
+SpecifiedLengthContentPtr parseFormat(const char** fptr, va_list* args) {
+  parseWhitespaces(fptr);
+  SpecifiedLengthContentPtr root = parseSpecifiedLengthContent(fptr, args);
+  if (**fptr != '\0') {
+    throw std::runtime_error("Unexpected character before end of format string.");
+  }
+  return root;
+}
 
 void dsl_printf(const char* format, ...) {
   va_list args;
@@ -219,7 +232,7 @@ void dsl_printf(const char* format, ...) {
   const char* f_at = format;
   SpecifiedLengthContentPtr root;
   try {
-    root = parseSpecifiedLengthContent(&f_at, &args);
+    root = parseFormat(&f_at, &args);
 
     root->print();
     printf("\n");
