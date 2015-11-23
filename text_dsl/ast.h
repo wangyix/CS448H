@@ -87,15 +87,13 @@ struct GreedyRepeatedChar : public GreedyLengthContent {
 };
 
 struct Words : public GreedyLengthContent {
-  Words(const std::string& source, SpecifiedLengthContentPtr interWord,
-    char wordSilhouette = '\0', char interwordSilhouette = '\0')
+  Words(const std::string& source, const RepeatedChar& interword, char wordSilhouette = '\0')
     : source(source), interword(std::move(interword)),
-    wordSilhouette(wordSilhouette), interwordSilhouette(interwordSilhouette) {}
+    wordSilhouette(wordSilhouette) {}
 
   std::string source;
-  SpecifiedLengthContentPtr interword;
+  RepeatedChar interword;
   char wordSilhouette;        // use '\0' if unused
-  char interwordSilhouette;   // use '\0' if unused
 };
 
 #endif
