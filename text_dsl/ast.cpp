@@ -23,14 +23,14 @@ void StringLiteral::print() const {
   printf("'%s'", str.c_str());
 }
 
-void RepeatedChar::print() const {
+void RepeatedCharLL::print() const {
   length.print();
   printf("'%c'", c);
 }
 
 // -------------------------------------------------------------------------------------------------
 
-void RepeatedCharFuncLength::print() const {
+void RepeatedCharFL::print() const {
   length.print();
   printf("'%c'", c);
 }
@@ -66,6 +66,7 @@ void Block::print() const {
   }
   printf("}");
 }
+
 void Block::addChild(ASTPtr child) {
   children.push_back(std::move(child));
 }

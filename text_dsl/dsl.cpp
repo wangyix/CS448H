@@ -108,7 +108,7 @@ void parseFillers(const char** fptr, std::vector<FillerPtr>* fillers) {
       LiteralLength length = parseLiteralLength(fptr);
       if (**fptr == '\'') {
         char c = parseCharLiteral(fptr);
-        filler.reset(new RepeatedChar(f_at, length, c));
+        filler.reset(new RepeatedCharLL(f_at, length, c));
       } else {
         throw DSLException(*fptr, "Expected char literal after literal length.");
       }
@@ -117,14 +117,14 @@ void parseFillers(const char** fptr, std::vector<FillerPtr>* fillers) {
   }
 }
 
-ASTPtr parseRepeatedCharFuncLength(const char** fptr, va_list* args) {
+ASTPtr parseRepeatedCharFL(const char** fptr, va_list* args) {
   assert(**fptr == '#');
   const char* f_at = *fptr;
   ASTPtr ast;
   FunctionLength length = parseFunctionLength(fptr, args);
   if (**fptr == '\'') {
     char c = parseCharLiteral(fptr);
-    ast.reset(new RepeatedCharFuncLength(f_at, length, c));
+    ast.reset(new RepeatedCharFL(f_at, length, c));
   } else {
     throw DSLException(*fptr, "Expected char literal after function length.");
   }
@@ -194,13 +194,14 @@ ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
   if (**fptr == '\'') {
     slc = parseStringLiteral(fptr);
   } else if (**fptr == '#') {
-    slc = parseRepeatedCharFuncLength(fptr, args);
+    slc = parseRepeatedCharFL(fptr, args);
   } else {
+    const char* f_at = *fptr;
     LiteralLength length = parseLiteralLength(fptr);
     if (**fptr == '\'') {
-      slc.reset(new RepeatedChar(*fptr, length, parseCharLiteral(fptr)));
+      slc.reset(new RepeatedCharLL(f_at, length, parseCharLiteral(fptr)));
     } else if (**fptr == '[') {
-      Block* block = new Block(*fptr, length);
+      Block* block = new Block(f_at, length);
       slc.reset(block);
       ++*fptr;
       parseWhitespaces(fptr); // [ is a token
@@ -248,6 +249,9 @@ ASTPtr parseFormat(const char** fptr, va_list* args) {
   }
   if (**fptr != '\0') {
     throw DSLException(*fptr, "Unexpected character before end of format string.");
+  }
+  if (!root->lengthPtr->isFixed()) {
+    throw DSLException(root->f_at, "Root content must be fixed-length.");
   }
   return root;
 }

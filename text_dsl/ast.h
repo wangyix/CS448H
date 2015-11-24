@@ -18,10 +18,16 @@ public:
 
 // -------------------------------------------------------------------------------------------------
 
-struct SpecifiedLength {
-  SpecifiedLength(bool shares) : shares(shares) {}
-  virtual ~SpecifiedLength() {}
+struct Length {
+  Length() {}
   virtual void print() const = 0;
+  virtual bool isFixed() const = 0;
+};
+
+struct SpecifiedLength : public Length {
+  SpecifiedLength(bool shares) : shares(shares) {}
+  virtual void print() const override = 0;
+  virtual bool isFixed() const override = 0;
 
   bool shares;
 };
@@ -30,6 +36,7 @@ struct LiteralLength : public SpecifiedLength {
   LiteralLength(int value, bool shares)
     : SpecifiedLength(shares), value(value) {}
   void print() const override;
+  bool isFixed() const override { return !shares; }
 
   int value;
 };
@@ -38,8 +45,15 @@ struct FunctionLength : public SpecifiedLength {
   FunctionLength(LengthFunc lengthFunc, bool shares)
     : SpecifiedLength(shares), lengthFunc(lengthFunc) {}
   void print() const override;
+  bool isFixed() const override { return false; }
 
   LengthFunc lengthFunc;
+};
+
+struct GreedyLength : public Length {
+  GreedyLength() {}
+  void print() const override {};
+  bool isFixed() const override { return false; }
 };
 
 // -------------------------------------------------------------------------------------------------
@@ -47,22 +61,30 @@ struct FunctionLength : public SpecifiedLength {
 enum NodeType:int{ STRING_LITERAL, REPEATED_CHAR, REPEATED_CHAR_FL, WORDS, BLOCK };
 
 struct AST {
-  AST(NodeType type, const char* f_at) : type(type), f_at(f_at), startCol(-1), numCols(-1) {}
+  AST(NodeType type, const char* f_at, Length* lengthPtr)
+    : type(type), f_at(f_at), lengthPtr(lengthPtr), startCol(-1), numCols(-1) {}
   virtual void print() const = 0;
 
   NodeType type;
   const char* f_at;   // position in the format string where this node is specified
+  Length* lengthPtr;
+
+  int startCol;     // starting column of this content
+  int numCols;      // width of this content
 };
+
+typedef std::unique_ptr<AST> ASTPtr;
+
+// -------------------------------------------------------------------------------------------------
 
 struct Filler : public AST {
   Filler(NodeType type, const char* f_at, const LiteralLength& length)
-    : AST(type, f_at), length(length) {}
+    : AST(type, f_at, &this->length), length(length) {}
   virtual void print() const override = 0;
 
   LiteralLength length;
 };
 
-typedef std::unique_ptr<AST> ASTPtr;
 typedef std::unique_ptr<Filler> FillerPtr;
 
 // -------------------------------------------------------------------------------------------------
@@ -75,8 +97,8 @@ struct StringLiteral : public Filler {
   std::string str;
 };
 
-struct RepeatedChar : public Filler {
-  RepeatedChar(const char* f_at, const LiteralLength& length, char c)
+struct RepeatedCharLL : public Filler {
+  RepeatedCharLL(const char* f_at, const LiteralLength& length, char c)
     : Filler(REPEATED_CHAR, f_at, length), c(c) {}
   void print() const override;
 
@@ -85,9 +107,9 @@ struct RepeatedChar : public Filler {
 
 // -------------------------------------------------------------------------------------------------
 
-struct RepeatedCharFuncLength : public AST {
-  RepeatedCharFuncLength(const char* f_at, const FunctionLength& length, char c)
-    : AST(REPEATED_CHAR_FL, f_at), length(length), c(c) {}
+struct RepeatedCharFL : public AST {
+  RepeatedCharFL(const char* f_at, const FunctionLength& length, char c)
+    : AST(REPEATED_CHAR_FL, f_at, &this->length), length(length), c(c) {}
   void print() const override;
 
   FunctionLength length;
@@ -96,9 +118,10 @@ struct RepeatedCharFuncLength : public AST {
 
 struct Words : public AST {
   Words(const char* f_at, const std::string& source, char wordSilhouette = '\0')
-    : AST(WORDS, f_at), source(source), wordSilhouette(wordSilhouette) {}
+    : AST(WORDS, f_at, &this->length), source(source), wordSilhouette(wordSilhouette) {}
   void print() const override;
 
+  GreedyLength length;
   std::string source;
   std::vector<FillerPtr> interwordFillers;
   char wordSilhouette;        // use '\0' if unused
@@ -108,7 +131,7 @@ typedef std::unique_ptr<Words> WordsPtr;
 
 struct Block : public AST {
   Block(const char* f_at, const LiteralLength& length)
-    : AST(BLOCK, f_at), length(length), greedyChildIndex(-1) {}
+    : AST(BLOCK, f_at, &this->length), length(length), greedyChildIndex(-1) {}
   void print() const override;
 
   void addChild(ASTPtr child);
