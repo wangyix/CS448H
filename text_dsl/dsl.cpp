@@ -31,7 +31,7 @@ char parseCharInsideLiteral(const char** fptr) {
   assert(**fptr != '\'');
   char c = **fptr;
   if (c == '\0') {
-    throw std::runtime_error("Reached end of string; expected char.");
+    throw DSLException(*fptr, "Reached end of string; expected char.");
   }
   ++*fptr;
   if (c == '\\') {
@@ -49,11 +49,11 @@ char parseCharLiteral(const char** fptr) {  // TOKEN
   assert(**fptr == '\'');
   ++*fptr;
   if (**fptr == '\'') {
-    throw std::runtime_error("Exected char literial; found '' instead.");
+    throw DSLException(*fptr, "Exected char literial; found '' instead.");
   }
   char c = parseCharInsideLiteral(&*fptr);
   if (**fptr != '\'') {
-    throw std::runtime_error("Expected closing ' for char literal.");
+    throw DSLException(*fptr, "Expected closing ' for char literal.");
   }
   ++*fptr;
   parseWhitespaces(fptr);
@@ -110,7 +110,7 @@ void parseFillers(const char** fptr, std::vector<FillerPtr>* fillers) {
         char c = parseCharLiteral(fptr);
         filler.reset(new RepeatedChar(f_at, length, c));
       } else {
-        throw std::runtime_error("Expected char literal after literal length.");
+        throw DSLException(*fptr, "Expected char literal after literal length.");
       }
     }
     fillers->push_back(std::move(filler));
@@ -126,7 +126,7 @@ ASTPtr parseRepeatedCharFuncLength(const char** fptr, va_list* args) {
     char c = parseCharLiteral(fptr);
     ast.reset(new RepeatedCharFuncLength(f_at, length, c));
   } else {
-    throw std::runtime_error("Expected char literal after function length.");
+    throw DSLException(*fptr, "Expected char literal after function length.");
   }
   return ast;
 }
@@ -135,12 +135,12 @@ char parseSilhouetteCharLiteral(const char** fptr) {
   assert(**fptr == '-');
   ++*fptr;
   if (**fptr != '>') {
-    throw std::runtime_error("Expected > immediately after -.");
+    throw DSLException(*fptr, "Expected > immediately after -.");
   }
   ++*fptr;
   parseWhitespaces(fptr); // -> is a token
   if (**fptr != '\'') {
-    throw std::runtime_error("Expected char literal after ->.");
+    throw DSLException(*fptr, "Expected char literal after ->.");
   }
   return parseCharLiteral(fptr);
 }
@@ -159,10 +159,10 @@ ASTPtr parseWords(const char** fptr, va_list* args) {
     }
     parseFillers(fptr, &words->interwordFillers);
   } else {
-    throw std::runtime_error("Expected w after {.");
+    throw DSLException(*fptr, "Expected w after {.");
   }
   if (**fptr != '}') {
-    throw std::runtime_error("Expected }, ->, or interword fillers.");
+    throw DSLException(*fptr, "Expected }, ->, or interword fillers.");
   }
   ++*fptr;
   parseWhitespaces(fptr); // } is a token
@@ -175,13 +175,13 @@ void parseTopOrBottomFiller(const char** fptr, std::vector<FillerPtr>* fillers, 
   ++*fptr;
   parseWhitespaces(fptr); // ^, v are tokens
   if (**fptr != '{') {
-    throw std::runtime_error("Expected {.");
+    throw DSLException(*fptr, "Expected {.");
   }
   ++*fptr;
   parseWhitespaces(fptr); // { is a token
   parseFillers(fptr, fillers);
   if (**fptr != '}') {
-    throw std::runtime_error("Expected }.");
+    throw DSLException(*fptr, "Expected }.");
   }
   ++*fptr;
   parseWhitespaces(fptr); // } is a token
@@ -209,11 +209,11 @@ ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
           block->addChild(parseSpecifiedLengthContent(fptr, args));
         } else if (**fptr == '{') {
           if (block->hasGreedyChild()) {
-            throw std::runtime_error("Cannot have multiple greedy-content within a block.");
+            throw DSLException(*fptr, "Cannot have multiple greedy-content within a block.");
           }
           block->addGreedyChild(parseWords(fptr, args));
         } else {
-          throw std::runtime_error("Expected ', digit, or # to begin specified-length content, "
+          throw DSLException(*fptr, "Expected ', digit, or # to begin specified-length content, "
             "or { to begin greedy-length content.");
         }
       }
@@ -231,7 +231,7 @@ ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
         }
       }
     } else {
-      throw std::runtime_error("Expected ' or [ after length specifier.");
+      throw DSLException(*fptr, "Expected ' or [ after length specifier.");
     }
   }
   return slc;
@@ -244,10 +244,10 @@ ASTPtr parseFormat(const char** fptr, va_list* args) {
   if (**fptr == '\'' || std::isdigit(**fptr)) {
     root = parseSpecifiedLengthContent(fptr, args);
   } else {
-    throw std::runtime_error("Expected ' or digit.");
+    throw DSLException(*fptr, "Expected ' or digit.");
   }
   if (**fptr != '\0') {
-    throw std::runtime_error("Unexpected character before end of format string.");
+    throw DSLException(*fptr, "Unexpected character before end of format string.");
   }
   return root;
 }
@@ -259,20 +259,20 @@ void dsl_printf(const char* format, ...) {
   ASTPtr root;
   try {
     root = parseFormat(&f_at, &args);
+    //root->verifyBlockBoundariesConsistent();
 
     root->print();
     printf("\n");
 
-  } catch (std::exception& e) {
+  } catch (DSLException& e) {
     printf("%s\n", format);
-    for (int i = 0; i < f_at - format; ++i) {
+    for (int i = 0; i < e.f_at - format; ++i) {
       putchar(' ');
     }
     printf("^\n");
-    printf("Error at %d: %s\n", f_at - format, e.what());
+    printf("Error at %d: %s\n", e.f_at - format, e.what());
   }
   va_end(args);
-
 
 }
 

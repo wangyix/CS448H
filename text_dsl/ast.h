@@ -4,8 +4,19 @@
 #include <vector>
 #include <memory>
 #include <assert.h>
+#include <exception>
 
 typedef int(*LengthFunc)(int);
+
+class DSLException : public std::exception {
+public:
+  class DSLException(const char* f_at, const char* const& what)
+    : std::exception(what), f_at(f_at) {}
+
+  const char* f_at;
+};
+
+// -------------------------------------------------------------------------------------------------
 
 struct SpecifiedLength {
   SpecifiedLength(bool shares) : shares(shares) {}
@@ -33,15 +44,20 @@ struct FunctionLength : public SpecifiedLength {
 
 // -------------------------------------------------------------------------------------------------
 
+enum NodeType:int{ STRING_LITERAL, REPEATED_CHAR, REPEATED_CHAR_FL, WORDS, BLOCK };
+
 struct AST {
-  AST(const char* f_at) : f_at(f_at) {}
+  AST(NodeType type, const char* f_at) : type(type), f_at(f_at), startCol(-1), numCols(-1) {}
   virtual void print() const = 0;
-  
-  const char* f_at;
+
+  NodeType type;
+  const char* f_at;   // position in the format string where this node is specified
 };
 
 struct Filler : public AST {
-  Filler(const char* f_at, const LiteralLength& length) : AST(f_at), length(length) {}
+  Filler(NodeType type, const char* f_at, const LiteralLength& length)
+    : AST(type, f_at), length(length) {}
+  virtual void print() const override = 0;
 
   LiteralLength length;
 };
@@ -53,7 +69,7 @@ typedef std::unique_ptr<Filler> FillerPtr;
 
 struct StringLiteral : public Filler {
   StringLiteral(const char* f_at, const std::string& str)
-    : Filler(f_at, LiteralLength((int)str.length(), false)), str(str) {}
+    : Filler(STRING_LITERAL, f_at, LiteralLength((int)str.length(), false)), str(str) {}
   void print() const override;
 
   std::string str;
@@ -61,7 +77,7 @@ struct StringLiteral : public Filler {
 
 struct RepeatedChar : public Filler {
   RepeatedChar(const char* f_at, const LiteralLength& length, char c)
-    : Filler(f_at, length), c(c) {}
+    : Filler(REPEATED_CHAR, f_at, length), c(c) {}
   void print() const override;
 
   char c;
@@ -71,7 +87,7 @@ struct RepeatedChar : public Filler {
 
 struct RepeatedCharFuncLength : public AST {
   RepeatedCharFuncLength(const char* f_at, const FunctionLength& length, char c)
-    : AST(f_at), length(length), c(c) {}
+    : AST(REPEATED_CHAR_FL, f_at), length(length), c(c) {}
   void print() const override;
 
   FunctionLength length;
@@ -80,7 +96,7 @@ struct RepeatedCharFuncLength : public AST {
 
 struct Words : public AST {
   Words(const char* f_at, const std::string& source, char wordSilhouette = '\0')
-    : AST(f_at), source(source), wordSilhouette(wordSilhouette) {}
+    : AST(WORDS, f_at), source(source), wordSilhouette(wordSilhouette) {}
   void print() const override;
 
   std::string source;
@@ -92,7 +108,7 @@ typedef std::unique_ptr<Words> WordsPtr;
 
 struct Block : public AST {
   Block(const char* f_at, const LiteralLength& length)
-    : AST(f_at), length(length), greedyChildIndex(-1) {}
+    : AST(BLOCK, f_at), length(length), greedyChildIndex(-1) {}
   void print() const override;
 
   void addChild(ASTPtr child);
