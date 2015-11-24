@@ -60,7 +60,7 @@ char parseCharLiteral(const char** fptr) {  // TOKEN
   return c;
 }
 
-SpecifiedLengthContentPtr parseStringLiteral(const char** fptr) { // TOKEN
+FillerPtr parseStringLiteral(const char** fptr) { // TOKEN
   assert(**fptr == '\'');
   const char* f_at = *fptr;
   ++*fptr;
@@ -71,56 +71,64 @@ SpecifiedLengthContentPtr parseStringLiteral(const char** fptr) { // TOKEN
   }
   ++*fptr;
   parseWhitespaces(fptr);
-  return SpecifiedLengthContentPtr(new StringLiteral(f_at, str));
+  return FillerPtr(new StringLiteral(f_at, str));
 }
 
-
-SpecifiedLengthPtr parseSpecifiedLength(const char** fptr, va_list* args) { // TOKEN
-  assert(std::isdigit(**fptr) || **fptr == '#');
-  SpecifiedLengthPtr sl;
-  if (**fptr == '#') {
-    sl.reset(new FunctionLength(*fptr, va_arg(*args, LengthFunc), false));
-    ++*fptr;
-  } else {
-    sl.reset(new LiteralLength(*fptr, parseUint(&*fptr), false));
-  }
+LiteralLength parseLiteralLength(const char** fptr) {
+  assert(std::isdigit(**fptr));
+  LiteralLength ll(parseUint(fptr), false);
   if (**fptr == 's') {
-    sl->shares = true;
+    ll.shares = true;
     ++*fptr;
   }
   parseWhitespaces(fptr);
-  return sl;
+  return ll;
 }
 
-// A RepeatedChar with literal length. Can also just be a char literal, which has implied length 1
-Filler parseFiller(const char** fptr, va_list* args) {
-  assert(std::isdigit(**fptr) || **fptr == '\'');
-  Filler filler(*fptr, 1, false, ' ');
-  if (std::isdigit(**fptr)) {
-    filler.length = parseUint(fptr);
-    if (**fptr == 's') {
-      ++*fptr;
-      filler.shares = true;
-    }
-    parseWhitespaces(fptr); // literal length is a token
-  }
-  if (**fptr != '\'') {
-    throw std::runtime_error("Expected char literal.");
-  }
-  filler.c = parseCharLiteral(fptr);
-  return filler;
-}
-
-Filler parseTopOrBottomFiller(const char** fptr, va_list* args, bool top) {
-  char firstChar = top ? '^' : 'v';
-  assert(**fptr == firstChar);
+FunctionLength parseFunctionLength(const char** fptr, va_list* args) {
+  assert(**fptr == '#');
+  FunctionLength fl(va_arg(*args, LengthFunc), false);
   ++*fptr;
-  parseWhitespaces(fptr); // ^, v are tokens
-  // The shorthand version of the filler where the length is dropped is not allowed.
-  if (!(std::isdigit(**fptr))) {  // || **fptr == '\'')) {
-    throw std::runtime_error("Expected digit at start of vertical filler specifier.");
+  if (**fptr == 's') {
+    fl.shares = true;
+    ++*fptr;
   }
-  return parseFiller(fptr, args);
+  parseWhitespaces(fptr);
+  return fl;
+}
+
+// Parses 0 or more fillers
+void parseFillers(const char** fptr, std::vector<FillerPtr>* fillers) {
+  while (**fptr == '\'' || std::isdigit(**fptr)) {
+    FillerPtr filler;
+    if (**fptr == '\'') {
+      filler = parseStringLiteral(fptr);
+    } else {
+      const char* f_at = *fptr;
+      LiteralLength length = parseLiteralLength(fptr);
+      if (**fptr == '\'') {
+        char c = parseCharLiteral(fptr);
+        filler.reset(new RepeatedChar(f_at, length, c));
+      } else {
+        throw std::runtime_error("Expected char literal after literal length.");
+      }
+    }
+    fillers->push_back(std::move(filler));
+  }
+}
+
+ASTPtr parseRepeatedCharFuncLength(const char** fptr, va_list* args) {
+  assert(**fptr == '#');
+  const char* f_at = *fptr;
+  ASTPtr ast;
+  FunctionLength length = parseFunctionLength(fptr, args);
+  if (**fptr == '\'') {
+    char c = parseCharLiteral(fptr);
+    ast.reset(new RepeatedCharFuncLength(f_at, length, c));
+  } else {
+    throw std::runtime_error("Expected char literal after function length.");
+  }
+  return ast;
 }
 
 char parseSilhouetteCharLiteral(const char** fptr) {
@@ -137,47 +145,65 @@ char parseSilhouetteCharLiteral(const char** fptr) {
   return parseCharLiteral(fptr);
 }
 
-
-Words parseGreedyLengthContent(const char** fptr, va_list* args) {
+ASTPtr parseWords(const char** fptr, va_list* args) {
   assert(**fptr == '{');
-  Words words(*fptr);
+  Words* words = new Words(*fptr, va_arg(*args, char*));
+  ASTPtr ast(words);
   ++*fptr;
   parseWhitespaces(fptr); // { is a token
   if (**fptr == 'w') {
     ++*fptr;
     parseWhitespaces(fptr); // w is a token
     if (**fptr == '-') {
-      words.wordSilhouette = parseSilhouetteCharLiteral(fptr);
+      words->wordSilhouette = parseSilhouetteCharLiteral(fptr);
     }
-    if (std::isdigit(**fptr) || **fptr == '\'') {
-      words.interword = parseFiller(fptr, args);
-    }
-    words.source = std::string(va_arg(*args, char*));
+    parseFillers(fptr, &words->interwordFillers);
   } else {
     throw std::runtime_error("Expected w after {.");
   }
+  if (**fptr != '}') {
+    throw std::runtime_error("Expected }, ->, or interword fillers.");
+  }
+  ++*fptr;
+  parseWhitespaces(fptr); // } is a token
+  return ast;
+}
+
+void parseTopOrBottomFiller(const char** fptr, std::vector<FillerPtr>* fillers, bool top) {
+  char firstChar = top ? '^' : 'v';
+  assert(**fptr == firstChar);
+  ++*fptr;
+  parseWhitespaces(fptr); // ^, v are tokens
+  if (**fptr != '{') {
+    throw std::runtime_error("Expected {.");
+  }
+  ++*fptr;
+  parseWhitespaces(fptr); // { is a token
+  parseFillers(fptr, fillers);
   if (**fptr != '}') {
     throw std::runtime_error("Expected }.");
   }
   ++*fptr;
   parseWhitespaces(fptr); // } is a token
-  return words;
 }
 
-SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
+
+ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
   assert(**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#');
-  SpecifiedLengthContentPtr slc;
+  ASTPtr slc;
   if (**fptr == '\'') {
     slc = parseStringLiteral(fptr);
+  } else if (**fptr == '#') {
+    slc = parseRepeatedCharFuncLength(fptr, args);
   } else {
-    SpecifiedLengthPtr sl = parseSpecifiedLength(fptr, args);
+    LiteralLength length = parseLiteralLength(fptr);
     if (**fptr == '\'') {
-      slc.reset(new RepeatedChar(*fptr, std::move(sl), parseCharLiteral(fptr)));
+      slc.reset(new RepeatedChar(*fptr, length, parseCharLiteral(fptr)));
     } else if (**fptr == '[') {
-      Block* block = new Block(*fptr, std::move(sl));
+      Block* block = new Block(*fptr, length);
+      slc.reset(block);
       ++*fptr;
       parseWhitespaces(fptr); // [ is a token
-      slc.reset(block);
       while (**fptr != ']') {
         if (**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#') {
           block->addChild(parseSpecifiedLengthContent(fptr, args));
@@ -185,7 +211,7 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
           if (block->hasGreedyChild()) {
             throw std::runtime_error("Cannot have multiple greedy-content within a block.");
           }
-          block->addGreedyChild(parseGreedyLengthContent(fptr, args));
+          block->addGreedyChild(parseWords(fptr, args));
         } else {
           throw std::runtime_error("Expected ', digit, or # to begin specified-length content, "
             "or { to begin greedy-length content.");
@@ -194,14 +220,14 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
       ++*fptr;
       parseWhitespaces(fptr); // ] is a token
       if (**fptr == '^') {
-        block->topFiller = parseTopOrBottomFiller(fptr, args, true);
+        parseTopOrBottomFiller(fptr, &block->topFillers, true);
         if (**fptr == 'v') {
-          block->bottomFiller = parseTopOrBottomFiller(fptr, args, false);
+          parseTopOrBottomFiller(fptr, &block->bottomFillers, false);
         }
       } else if (**fptr == 'v') {
-        block->bottomFiller = parseTopOrBottomFiller(fptr, args, false);
+        parseTopOrBottomFiller(fptr, &block->bottomFillers, false);
         if (**fptr == '^') {
-          block->topFiller = parseTopOrBottomFiller(fptr, args, true);
+          parseTopOrBottomFiller(fptr, &block->topFillers, true);
         }
       }
     } else {
@@ -211,14 +237,17 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
   return slc;
 }
 
-SpecifiedLengthContentPtr parseFormat(const char** fptr, va_list* args) {
+ASTPtr parseFormat(const char** fptr, va_list* args) {
   parseWhitespaces(fptr);
-  SpecifiedLengthContentPtr root = parseSpecifiedLengthContent(fptr, args);
+  ASTPtr root;
+  // top-level node must be some specified-length content other than repeated char with function length.
+  if (**fptr == '\'' || std::isdigit(**fptr)) {
+    root = parseSpecifiedLengthContent(fptr, args);
+  } else {
+    throw std::runtime_error("Expected ' or digit.");
+  }
   if (**fptr != '\0') {
     throw std::runtime_error("Unexpected character before end of format string.");
-  }
-  if (root->length->shares) {
-    throw std::runtime_error("Outermost block must not have shares for length.");
   }
   return root;
 }
@@ -227,7 +256,7 @@ void dsl_printf(const char* format, ...) {
   va_list args;
   va_start(args, format);
   const char* f_at = format;
-  SpecifiedLengthContentPtr root;
+  ASTPtr root;
   try {
     root = parseFormat(&f_at, &args);
 

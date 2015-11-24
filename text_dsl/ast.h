@@ -96,7 +96,7 @@ struct Block : public AST {
   void print() const override;
 
   void addChild(ASTPtr child);
-  void addGreedyChild(WordsPtr words);
+  void addGreedyChild(ASTPtr words);
   bool hasGreedyChild() const;
 
   LiteralLength length;

@@ -40,9 +40,11 @@ void Words::print() const {
   if (wordSilhouette) {
     printf("->'%c'", wordSilhouette);
   }
-  for (const FillerPtr& filler : interwordFillers) {
+  if (!interwordFillers.empty()) {
     printf(" ");
-    filler->print();
+    for (const FillerPtr& filler : interwordFillers) {
+      filler->print();
+    }
   }
   printf("}");
 }
@@ -54,12 +56,24 @@ void Block::print() const {
     printf(" ");
     child->print();
   }
-  printf(" ]^");
+  printf(" ]^{");
   for (const FillerPtr& filler : topFillers) {
     filler->print();
   }
-  printf("v");
+  printf("}v{");
   for (const FillerPtr& filler : bottomFillers) {
     filler->print();
   }
+  printf("}");
+}
+void Block::addChild(ASTPtr child) {
+  children.push_back(std::move(child));
+}
+void Block::addGreedyChild(ASTPtr words) {
+  assert(!hasGreedyChild());
+  greedyChildIndex = children.size();
+  children.push_back(std::move(words));
+}
+bool Block::hasGreedyChild() const {
+  return greedyChildIndex >= 0;
 }
