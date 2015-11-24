@@ -48,17 +48,6 @@ void RepeatedChar::print() const {
   printf("'%c'", c);
 }
 
-void Block::addChild(SpecifiedLengthContentPtr child) {
-  children.push_back(std::move(child));
-}
-void Block::addGreedyChild(const Words& words) {
-  assert(greedyChildIndex < 0);
-  greedyChildIndex = children.size();
-  greedyChild = words;
-}
-bool Block::hasGreedyChild() const {
-  return (greedyChildIndex >= 0);
-}
 void Block::print() const {
   length->print();
   printf("[");
@@ -77,3 +66,17 @@ void Block::print() const {
   printf("v");
   bottomFiller.print();
 }
+
+void Block::addChild(SpecifiedLengthContentPtr child) {
+  children.push_back(std::move(child));
+}
+void Block::addGreedyChild(const Words& words) {
+  assert(greedyChildIndex < 0);
+  greedyChildIndex = children.size();
+  greedyChild = words;
+}
+bool Block::hasGreedyChild() const {
+  return (greedyChildIndex >= 0);
+}
+
+

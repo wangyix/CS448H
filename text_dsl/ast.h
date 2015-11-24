@@ -103,10 +103,11 @@ struct Block : public SpecifiedLengthContent {
   Block(const char* f_at, SpecifiedLengthPtr length)
     : SpecifiedLengthContent(f_at, std::move(length)), greedyChildIndex(-1), greedyChild(NULL),
     topFiller(NULL, 0, false, ' '), bottomFiller(NULL, 0, false, ' ') {}
+  void print() const override;
+
   void addChild(SpecifiedLengthContentPtr child);
   void addGreedyChild(const Words& words);
   bool hasGreedyChild() const;
-  void print() const override;
 
   std::vector<SpecifiedLengthContentPtr> children;
   int greedyChildIndex;   // use value < 0 if no greedy child
