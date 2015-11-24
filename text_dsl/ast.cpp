@@ -52,6 +52,7 @@ void Block::addChild(SpecifiedLengthContentPtr child) {
   children.push_back(std::move(child));
 }
 void Block::addGreedyChild(const Words& words) {
+  assert(greedyChildIndex < 0);
   greedyChildIndex = children.size();
   greedyChild = words;
 }

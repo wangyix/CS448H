@@ -62,6 +62,7 @@ char parseCharLiteral(const char** fptr) {  // TOKEN
 
 SpecifiedLengthContentPtr parseStringLiteral(const char** fptr) { // TOKEN
   assert(**fptr == '\'');
+  const char* f_at = *fptr;
   ++*fptr;
   const char* strBegin = *fptr;
   std::string str;
@@ -70,7 +71,7 @@ SpecifiedLengthContentPtr parseStringLiteral(const char** fptr) { // TOKEN
   }
   ++*fptr;
   parseWhitespaces(fptr);
-  return SpecifiedLengthContentPtr(new StringLiteral(str));
+  return SpecifiedLengthContentPtr(new StringLiteral(f_at, str));
 }
 
 
@@ -78,10 +79,10 @@ SpecifiedLengthPtr parseSpecifiedLength(const char** fptr, va_list* args) { // T
   assert(std::isdigit(**fptr) || **fptr == '#');
   SpecifiedLengthPtr sl;
   if (**fptr == '#') {
-    sl.reset(new FunctionLength(va_arg(*args, LengthFunc)));
+    sl.reset(new FunctionLength(*fptr, va_arg(*args, LengthFunc), false));
     ++*fptr;
   } else {
-    sl.reset(new LiteralLength(parseUint(&*fptr)));
+    sl.reset(new LiteralLength(*fptr, parseUint(&*fptr), false));
   }
   if (**fptr == 's') {
     sl->shares = true;
@@ -94,21 +95,20 @@ SpecifiedLengthPtr parseSpecifiedLength(const char** fptr, va_list* args) { // T
 // A RepeatedChar with literal length. Can also just be a char literal, which has implied length 1
 Filler parseFiller(const char** fptr, va_list* args) {
   assert(std::isdigit(**fptr) || **fptr == '\'');
-  int length = 1;
-  bool shares = false;
+  Filler filler(*fptr, 1, false, ' ');
   if (std::isdigit(**fptr)) {
-    length = parseUint(fptr);
+    filler.length = parseUint(fptr);
     if (**fptr == 's') {
       ++*fptr;
-      shares = true;
+      filler.shares = true;
     }
     parseWhitespaces(fptr); // literal length is a token
   }
   if (**fptr != '\'') {
     throw std::runtime_error("Expected char literal.");
   }
-  char c = parseCharLiteral(fptr);
-  return Filler(length, shares, c);
+  filler.c = parseCharLiteral(fptr);
+  return filler;
 }
 
 Filler parseTopOrBottomFiller(const char** fptr, va_list* args, bool top) {
@@ -140,9 +140,9 @@ char parseSilhouetteCharLiteral(const char** fptr) {
 
 Words parseGreedyLengthContent(const char** fptr, va_list* args) {
   assert(**fptr == '{');
+  Words words(*fptr);
   ++*fptr;
   parseWhitespaces(fptr); // { is a token
-  Words words;
   if (**fptr == 'w') {
     ++*fptr;
     parseWhitespaces(fptr); // w is a token
@@ -172,12 +172,11 @@ SpecifiedLengthContentPtr parseSpecifiedLengthContent(const char** fptr, va_list
   } else {
     SpecifiedLengthPtr sl = parseSpecifiedLength(fptr, args);
     if (**fptr == '\'') {
-      char c = parseCharLiteral(fptr);
-      slc.reset(new RepeatedChar(std::move(sl), c));
+      slc.reset(new RepeatedChar(*fptr, std::move(sl), parseCharLiteral(fptr)));
     } else if (**fptr == '[') {
+      Block* block = new Block(*fptr, std::move(sl));
       ++*fptr;
       parseWhitespaces(fptr); // [ is a token
-      Block* block = new Block(std::move(sl));
       slc.reset(block);
       while (**fptr != ']') {
         if (**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#') {
