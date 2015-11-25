@@ -255,8 +255,10 @@ void Block::convertLLSharesToLength() {
     llSharesToLength(length.value, lls, f_at);  // modifies the LiteralLength of all children to fixed lengths
     for (const ASTPtr& child : children) {
       assert(child->getFixedLength() != UNKNOWN_COL);
-      child->convertLLSharesToLength();
     }
+  }
+  for (const ASTPtr& child : children) {
+    child->convertLLSharesToLength();
   }
 }
 
@@ -275,22 +277,38 @@ void Block::computeStartCol(int start) {
 printf("\n%s\n", f_at);
 printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
 
-  // some content varies line-by-line, so only fixed-length children that are preceded solely
-  // by other fixed-length children (in the same block) can have their startCol computed.
+  // some content varies line-by-line, so only consecutive fixed-length children starting from
+  // either end of this block have consistent starting positions.
   int childStartCol = startCol;
-  for (const ASTPtr& child : children) {
+  int i = 0;  // start index from left, iterate until a non-fixed-length child is found
+  for (; i < children.size(); ++i) {
+    const ASTPtr& child = children[i];
     child->computeStartCol(childStartCol);
-    // As sson as one child with non-fixed-length is found, childStartCol will be set to UNKNOWN_COL
-    // for all subsequent children
     int childNumCols = child->getFixedLength();
-    if (childStartCol != UNKNOWN_COL) {
-      if (childNumCols != UNKNOWN_COL) {
-        childStartCol += childNumCols;
-      } else {
-        childStartCol = UNKNOWN_COL;
-      }
+    if (childNumCols == UNKNOWN_COL) {
+      break;
     }
+    childStartCol += childNumCols;
+  }
+  int j = children.size() - 1;  // start index from right, iterate until a non-fixed-length child is found
+  childStartCol = startCol + length.value;
+  for (; j > i; --j) {
+    const ASTPtr& child = children[j];
+    int childNumCols = child->getFixedLength();
+    if (childNumCols == UNKNOWN_COL) {
+      break;
+    }
+    childStartCol -= childNumCols;
+    child->computeStartCol(childStartCol);
   }
 }
 
 
+void AST::flatten(std::vector<BlockPtr>* flatBlocks) {
+
+}
+
+void Block::flatten(std::vector<BlockPtr>* flatBlocks) {
+  for (const ASTPtr& child : children) {
+  }
+}
