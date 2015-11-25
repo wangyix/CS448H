@@ -2,6 +2,7 @@
 #include "visitor.h"
 
 #include <stdio.h>
+#include <algorithm>
 
 void LiteralLength::print() const {
   printf("%d", value);
@@ -69,10 +70,10 @@ void Block::print() const {
 }
 
 void Block::addChild(ASTPtr child) {
-  children.push_back(std::move(child));
   if (child->type == REPEATED_CHAR_FL) {
     hasFLChild = true;
   }
+  children.push_back(std::move(child));
 }
 void Block::addGreedyChild(ASTPtr words) {
   assert(!hasGreedyChild());
@@ -105,41 +106,60 @@ void Block::accept(Visitor* v) {
   }
 }
 
-static void computeShareLengths(int totalLength, const std::vector<int> shares, std::vector<int>* lengths) {
+static void computeShareLengths(int totalLength, const std::vector<int> shareCounts, std::vector<int>* lengths) {
   assert(totalLength >= 0);
-  // initially, evenly distribute from the total length to each share until there isn't enough
-  // to add 1 more to every share
-  int totalShares = 0;
-  for (int s : shares) {
-    totalShares += s;
+  // Initially, distribute from the total length so that each length is the floor of its target
+  // value based on uniform shares.
+  int totalShareCount = 0;
+  for (int count : shareCounts) {
+    totalShareCount += count;
   }
-  float avgShare = totalLength / (float)totalShares;
-  int avgShareFloor = std::floorf(avgShare);
-  *lengths = std::vector<int>(shares.size());
-  for (int i = 0; i < shares.size(); ++i) {
-    (*lengths)[i] = shares[i] * avgShareFloor;
+  float avgShareLength = totalLength / (float)totalShareCount;
+  *lengths = std::vector<int>(shareCounts.size());
+  std::vector<float> deltas(shareCounts.size());
+  int lengthRemaining = totalLength;
+  for (int i = 0; i < shareCounts.size(); ++i) {
+    float targetLength = shareCounts[i] * avgShareLength;
+    int length = floorf(targetLength);
+    (*lengths)[i] = length;
+    deltas[i] = targetLength - length;
+    lengthRemaining -= length;
   }
-  // Each remaining unit of length is distributed randomly to the groups, with each group's
-  // probability of being selected for a unit being proportional to its number of shares.
-  int lengthRemaining = totalLength % totalShares;
-  for (; lengthRemaining > 0; --lengthRemaining) {
-    float r = (std::rand() / (float)RAND_MAX) * totalShares;
-    int runningTotalShares = 0;
-    int i;
-    for (i = 0; i < shares.size() - 1; ++i) {
-      runningTotalShares += shares[i];
-      if ((float)runningTotalShares >= r) {
-        break;
-      }
+  // lengthRemaining should be less than shareCounts.size(), but do this anyway in case of numerical
+  // error
+  while (lengthRemaining >= shareCounts.size()) {
+    for (int i = 0; i < shareCounts.size(); ++i) {
+      (*lengths)[i]++;
+      deltas[i]--;
     }
-    (*lengths)[i]++;
+    lengthRemaining -= shareCounts.size();
   }
+  // Distribute remaining length to the lengths with the largest deltas.
+  int n = deltas.size() - 1 - lengthRemaining;
+  std::vector<float> deltasCopy(deltas);
+  std::nth_element(deltasCopy.begin(), deltasCopy.begin() + n, deltasCopy.end());
+  float deltaThreshold = deltasCopy[n];
+  for (int i = 0; i < shareCounts.size() && lengthRemaining > 0; ++i) {
+    if (deltas[i] > deltaThreshold) {
+      (*lengths)[i]++;
+      --lengthRemaining;
+    }
+  }
+  for (int i = 0; i < shareCounts.size() && lengthRemaining > 0; ++i) {
+    if (deltas[i] == deltaThreshold) {
+      (*lengths)[i]++;
+      --lengthRemaining;
+    }
+  }
+  assert(lengthRemaining == 0);
 }
 
 void AST::computeConsistentPos(int startColHint, int numColsHint) {
   startCol = startColHint;
   int fixedLength = lengthPtr->getFixedLength();
   numCols = (fixedLength == UNKNOWN_COL) ? numColsHint : fixedLength;
+printf("\n%s\n", f_at);
+printf("\tstartCol = %d, numCols = %d\n", startCol, numCols);
 }
 
 void Block::computeConsistentPos(int startColHint, int numColsHint) {
@@ -148,6 +168,8 @@ void Block::computeConsistentPos(int startColHint, int numColsHint) {
   if (startCol == UNKNOWN_COL || numCols == UNKNOWN_COL) {
     throw DSLException(f_at, "Block boundaries are line-dependent.");
   }
+printf("\n%s\n", f_at);
+printf("\tstartCol = %d, numCols = %d\n", startCol, numCols);
 
   if (!hasGreedyChild() && !hasFLChild) {
     // None of the content varies line-by-line, so all children have consistent length and positions
