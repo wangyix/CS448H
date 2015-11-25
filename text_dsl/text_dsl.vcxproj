@@ -21,11 +21,13 @@
   <ItemGroup>
     <ClInclude Include="ast.h" />
     <ClInclude Include="dsl.h" />
+    <ClInclude Include="visitor.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ast.cpp" />
     <ClCompile Include="dsl.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="visitor.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{3AA3832E-1F65-48E4-A8E3-33A0387FCF0D}</ProjectGuid>
