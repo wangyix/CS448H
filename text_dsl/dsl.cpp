@@ -98,7 +98,7 @@ FunctionLength parseFunctionLength(const char** fptr, va_list* args) {
 }
 
 // Parses 0 or more fillers
-void parseFillers(const char** fptr, std::vector<FillerPtr>* fillers) {
+void parseFillers(const char** fptr, std::vector<FillerPtrShared>* fillers) {
   while (**fptr == '\'' || std::isdigit(**fptr)) {
     FillerPtr filler;
     if (**fptr == '\'') {
@@ -169,7 +169,7 @@ ASTPtr parseWords(const char** fptr, va_list* args) {
   return ast;
 }
 
-void parseTopOrBottomFiller(const char** fptr, std::vector<FillerPtr>* fillers, bool top) {
+void parseTopOrBottomFiller(const char** fptr, std::vector<FillerPtrShared>* fillers, bool top) {
   char firstChar = top ? '^' : 'v';
   assert(**fptr == firstChar);
   ++*fptr;

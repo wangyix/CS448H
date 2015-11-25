@@ -44,7 +44,7 @@ void Words::print() const {
   }
   if (!interwordFillers.empty()) {
     printf(" ");
-    for (const FillerPtr& filler : interwordFillers) {
+    for (const FillerPtrShared& filler : interwordFillers) {
       filler->print();
     }
   }
@@ -59,11 +59,11 @@ void Block::print() const {
     child->print();
   }
   printf(" ]^{");
-  for (const FillerPtr& filler : topFillers) {
+  for (const FillerPtrShared& filler : topFillers) {
     filler->print();
   }
   printf("}v{");
-  for (const FillerPtr& filler : bottomFillers) {
+  for (const FillerPtrShared& filler : bottomFillers) {
     filler->print();
   }
   printf("}");
@@ -235,6 +235,8 @@ static void llSharesToLength(int totalLength, const std::vector<LiteralLength*>&
 
 
 void AST::convertLLSharesToLength() {
+  // Parent block is expected to do the conversion. As for the root node, it's expected to be
+  // fixed-length to begin with (expected to be verified by parser).
 }
 
 void Block::convertLLSharesToLength() {
@@ -290,3 +292,5 @@ printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
     }
   }
 }
+
+

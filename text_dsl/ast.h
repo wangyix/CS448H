@@ -83,6 +83,7 @@ struct Filler : public AST {
 };
 
 typedef std::unique_ptr<Filler> FillerPtr;
+typedef std::shared_ptr<Filler> FillerPtrShared;
 
 // -------------------------------------------------------------------------------------------------
 
@@ -127,7 +128,7 @@ struct Words : public AST {
   LiteralLength* getLiteralLength() override { return NULL; }
 
   std::string source;
-  std::vector<FillerPtr> interwordFillers;
+  std::vector<FillerPtrShared> interwordFillers;
   char wordSilhouette;        // use '\0' if unused
 };
 
@@ -152,10 +153,11 @@ struct Block : public AST {
   std::vector<ASTPtr> children;
   int greedyChildIndex;   // use value < 0 if no greedy child
   bool hasFLChild;        // whether or not any children have function-length.
-  std::vector<FillerPtr> topFillers;
-  std::vector<FillerPtr> bottomFillers;
+  std::vector<FillerPtrShared> topFillers;
+  std::vector<FillerPtrShared> bottomFillers;
 };
 
 // -------------------------------------------------------------------------------------------------
+
 
 #endif
