@@ -221,14 +221,14 @@ ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
       ++*fptr;
       parseWhitespaces(fptr); // ] is a token
       if (**fptr == '^') {
-        parseTopOrBottomFiller(fptr, &block->topFillers, true);
+        parseTopOrBottomFiller(fptr, block->topFillers.get(), true);
         if (**fptr == 'v') {
-          parseTopOrBottomFiller(fptr, &block->bottomFillers, false);
+          parseTopOrBottomFiller(fptr, block->bottomFillers.get(), false);
         }
       } else if (**fptr == 'v') {
-        parseTopOrBottomFiller(fptr, &block->bottomFillers, false);
+        parseTopOrBottomFiller(fptr, block->bottomFillers.get(), false);
         if (**fptr == '^') {
-          parseTopOrBottomFiller(fptr, &block->topFillers, true);
+          parseTopOrBottomFiller(fptr, block->topFillers.get(), true);
         }
       }
     } else {

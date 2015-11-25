@@ -44,7 +44,7 @@ void Words::print() const {
   }
   if (!interwordFillers.empty()) {
     printf(" ");
-    for (const FillerPtrShared& filler : interwordFillers) {
+    for (const FillerPtr& filler : interwordFillers) {
       filler->print();
     }
   }
@@ -59,11 +59,11 @@ void Block::print() const {
     child->print();
   }
   printf(" ]^{");
-  for (const FillerPtrShared& filler : topFillers) {
+  for (const FillerPtr& filler : *topFillers) {
     filler->print();
   }
   printf("}v{");
-  for (const FillerPtrShared& filler : bottomFillers) {
+  for (const FillerPtr& filler : *bottomFillers) {
     filler->print();
   }
   printf("}");
@@ -304,11 +304,20 @@ printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
 }
 
 
-void AST::flatten(std::vector<BlockPtr>* flatBlocks) {
-
+void AST::flatten(std::vector<BlockPtr>* flatBlocks, ) {
+  Block* b = flatBlocks->back().get();
+  int numCols = getFixedLength();
+  if (startCol != UNKNOWN_COL && numCols != UNKNOWN_COL) {
+    b = new Block(f_at, LiteralLength(numCols, false));
+    flatBlocks->push_back(BlockPtr(b));
+    b->startCol = startCol;
+    b->addChild()
+  }
+  
 }
 
 void Block::flatten(std::vector<BlockPtr>* flatBlocks) {
   for (const ASTPtr& child : children) {
+    child->flatten(flatBlocks);
   }
 }

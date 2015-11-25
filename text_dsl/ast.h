@@ -135,7 +135,8 @@ typedef std::unique_ptr<Words> WordsPtr;
 
 struct Block : public AST {
   Block(const char* f_at, const LiteralLength& length)
-    : AST(BLOCK, f_at), length(length), greedyChildIndex(-1), hasFLChild(false) {}
+    : AST(BLOCK, f_at), length(length), greedyChildIndex(-1), hasFLChild(false),
+    topFillers(new std::vector<FillerPtr>()), bottomFillers(new std::vector<FillerPtr>()) {}
   void print() const override;
   void accept(Visitor* v) override;
   int getFixedLength() const override { return length.shares ? UNKNOWN_COL : length.value; }
@@ -152,8 +153,8 @@ struct Block : public AST {
   std::vector<ASTPtr> children;
   int greedyChildIndex;   // use value < 0 if no greedy child
   bool hasFLChild;        // whether or not any children have function-length.
-  std::vector<FillerPtr> topFillers;
-  std::vector<FillerPtr> bottomFillers;
+  std::unique_ptr<std::vector<FillerPtr>> topFillers;
+  std::unique_ptr<std::vector<FillerPtr>> bottomFillers;
 };
 
 // -------------------------------------------------------------------------------------------------
