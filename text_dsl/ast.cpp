@@ -84,7 +84,6 @@ bool Block::hasGreedyChild() const {
   return greedyChildIndex >= 0;
 }
 
-
 // -------------------------------------------------------------------------------------------------
 
 void StringLiteral::accept(Visitor* v) {
@@ -106,14 +105,25 @@ void Block::accept(Visitor* v) {
   }
 }
 
-static void computeShareLengths(int totalLength, const std::vector<int> shareCounts, std::vector<int>* lengths) {
+// -------------------------------------------------------------------------------------------------
+
+static void computeShareLengths(int totalLength, const std::vector<int> shareCounts,
+                                std::vector<int>* lengths, const char* f_at) {
   assert(totalLength >= 0);
-  // Initially, distribute from the total length so that each length is the floor of its target
-  // value based on uniform shares.
   int totalShareCount = 0;
   for (int count : shareCounts) {
     totalShareCount += count;
   }
+  if (totalShareCount == 0) {
+    if (totalLength > 0) {
+      throw DSLException(f_at, "No share-length content to distribute remaining length to.");
+    }
+    // Distributing 0 length amongst 0 total shares is fine: all resulting lengths are 0.
+    *lengths = std::vector<int>(shareCounts.size(), 0);
+    return;
+  }
+  // Initially, distribute from the total length so that each length is the floor of its target
+  // value based on uniform shares.
   float avgShareLength = totalLength / (float)totalShareCount;
   *lengths = std::vector<int>(shareCounts.size());
   std::vector<float> deltas(shareCounts.size());
@@ -189,7 +199,7 @@ printf("\tstartCol = %d, numCols = %d\n", startCol, numCols);
       throw DSLException(f_at, "Block length too small to fit its contents.");
     }
     std::vector<int> evaluatedLengths;
-    computeShareLengths(sharesCols, shares, &evaluatedLengths);
+    computeShareLengths(sharesCols, shares, &evaluatedLengths, f_at);
     int i = 0;
     int childStartCol = startCol;
     for (const ASTPtr& child : children) {
