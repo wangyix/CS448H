@@ -107,7 +107,75 @@ void Block::accept(Visitor* v) {
 
 // -------------------------------------------------------------------------------------------------
 
-static void computeShareLengths(int totalLength, const std::vector<int> shareCounts,
+static void llSharesToLength(int totalLength, const std::vector<LiteralLength*>& lls,
+                                    const char* f_at) {
+  int lengthRemaining = totalLength;
+  int totalShareCount = 0;
+  std::vector<LiteralLength*> shareLLs;
+  for (LiteralLength* ll : lls) {
+    if (ll->shares) {
+      totalShareCount += ll->value;
+      shareLLs.push_back(ll);
+    } else {
+      lengthRemaining -= ll->value;
+    }
+  }
+  if (lengthRemaining < 0) {
+    throw DSLException(f_at, "Sum of length of fixed-length content exceeds available length.");
+  }
+  if (totalShareCount == 0) {
+    if (lengthRemaining > 0) {
+      throw DSLException(f_at, "No share-length content to distribute remaining length to.");
+    }
+    // Distributing 0 length amongst 0 total shares is fine: all resulting lengths are 0.
+    for (LiteralLength* ll : lls) {
+      ll->value = 0;
+      ll->shares = false;
+    }
+    return;
+  }
+  // Initially, distribute from the total length so that each length is the floor of its target
+  // value based on uniform shares.
+  float avgShareLength = lengthRemaining / (float)totalShareCount;
+  std::vector<float> deltas(shareLLs.size());
+  for (int i = 0; i < shareLLs.size(); ++i) {
+    float targetLength = shareLLs[i]->value * avgShareLength;
+    int length = floorf(targetLength);
+    shareLLs[i]->value = length;
+    shareLLs[i]->shares = false;
+    deltas[i] = targetLength - length;
+    lengthRemaining -= length;
+  }
+  // lengthRemaining should be less than shareCounts.size(), but do this anyway in case of numerical
+  // error
+  while (lengthRemaining >= shareLLs.size()) {
+    for (int i = 0; i < shareLLs.size(); ++i) {
+      shareLLs[i]->value++;
+      deltas[i]--;
+    }
+    lengthRemaining -= shareLLs.size();
+  }
+  // Distribute remaining length to the lengths with the largest deltas.
+  int n = deltas.size() - 1 - lengthRemaining;
+  std::vector<float> deltasCopy(deltas);
+  std::nth_element(deltasCopy.begin(), deltasCopy.begin() + n, deltasCopy.end());
+  float deltaThreshold = deltasCopy[n];
+  for (int i = 0; i < shareLLs.size() && lengthRemaining > 0; ++i) {
+    if (deltas[i] > deltaThreshold) {
+      shareLLs[i]->value++;
+      --lengthRemaining;
+    }
+  }
+  for (int i = 0; i < shareLLs.size() && lengthRemaining > 0; ++i) {
+    if (deltas[i] == deltaThreshold) {
+      shareLLs[i]->value++;
+      --lengthRemaining;
+    }
+  }
+  assert(lengthRemaining == 0);
+}
+
+/*static void computeShareLengths(int totalLength, const std::vector<int> shareCounts,
                                 std::vector<int>* lengths, const char* f_at) {
   assert(totalLength >= 0);
   int totalShareCount = 0;
@@ -163,67 +231,62 @@ static void computeShareLengths(int totalLength, const std::vector<int> shareCou
   }
   assert(lengthRemaining == 0);
 }
+*/
 
-void AST::computeConsistentPos(int startColHint, int numColsHint) {
-  startCol = startColHint;
-  int fixedLength = lengthPtr->getFixedLength();
-  numCols = (fixedLength == UNKNOWN_COL) ? numColsHint : fixedLength;
-printf("\n%s\n", f_at);
-printf("\tstartCol = %d, numCols = %d\n", startCol, numCols);
+
+void AST::convertLLSharesToLength() {
 }
 
-void Block::computeConsistentPos(int startColHint, int numColsHint) {
-  startCol = startColHint;
-  numCols = length.shares ? numColsHint : length.value;
-  if (startCol == UNKNOWN_COL || numCols == UNKNOWN_COL) {
-    throw DSLException(f_at, "Block boundaries are line-dependent.");
+void Block::convertLLSharesToLength() {
+  if (length.shares) {
+    throw DSLException(f_at, "Block length is line-dependent.");
   }
-printf("\n%s\n", f_at);
-printf("\tstartCol = %d, numCols = %d\n", startCol, numCols);
-
   if (!hasGreedyChild() && !hasFLChild) {
     // None of the content varies line-by-line, so all children have consistent length and positions
     // Note this means that all children have literal length.
-    int sharesCols = numCols;
-    std::vector<int> shares;
+    std::vector<LiteralLength*> lls;
     for (const ASTPtr& child : children) {
-      LiteralLength* ll = static_cast<LiteralLength*>(child->lengthPtr);
-      if (ll->shares) {
-        shares.push_back(ll->value);
+      LiteralLength* ll = child->getLiteralLength();
+      assert(ll != NULL);
+      lls.push_back(ll);
+    }
+    llSharesToLength(length.value, lls, f_at);  // modifies the LiteralLength of all children to fixed lengths
+    for (const ASTPtr& child : children) {
+      assert(child->getFixedLength() != UNKNOWN_COL);
+      child->convertLLSharesToLength();
+    }
+  }
+}
+
+
+void AST::computeStartCol(int start) {
+  startCol = start;
+printf("\n%s\n", f_at);
+printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
+}
+
+void Block::computeStartCol(int start) {
+  startCol = start;
+  if (startCol == UNKNOWN_COL) {
+    throw DSLException(f_at, "Block start position is line-dependent.");
+  }
+printf("\n%s\n", f_at);
+printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
+
+  // some content varies line-by-line, so only fixed-length children that are preceded solely
+  // by other fixed-length children (in the same block) can have their startCol computed.
+  int childStartCol = startCol;
+  for (const ASTPtr& child : children) {
+    child->computeStartCol(childStartCol);
+    // As sson as one child with non-fixed-length is found, childStartCol will be set to UNKNOWN_COL
+    // for all subsequent children
+    int childNumCols = child->getFixedLength();
+    if (childStartCol != UNKNOWN_COL) {
+      if (childNumCols != UNKNOWN_COL) {
+        childStartCol += childNumCols;
       } else {
-        sharesCols -= ll->value;
+        childStartCol = UNKNOWN_COL;
       }
-    }
-    // compute the width of each share-length child
-    if (sharesCols < 0) {
-      throw DSLException(f_at, "Block length too small to fit its contents.");
-    }
-    std::vector<int> evaluatedLengths;
-    computeShareLengths(sharesCols, shares, &evaluatedLengths, f_at);
-    int i = 0;
-    int childStartCol = startCol;
-    for (const ASTPtr& child : children) {
-      LiteralLength* ll = static_cast<LiteralLength*>(child->lengthPtr);
-      int childNumCols = ll->shares ? evaluatedLengths[i++] : ll->value;
-      child->computeConsistentPos(childStartCol, childNumCols);
-      childStartCol += childNumCols;
-    }
-  } else {
-    // some content varies line-by-line, so only fixed-length children that are preceded solely
-    // by other fixed-length children are consistent.
-    int childStartCol = startCol;
-    for (const ASTPtr& child : children) {
-      child->computeConsistentPos(childStartCol, UNKNOWN_COL);  // only fixed-length children will set their numCols
-      int childNumCols = child->numCols;
-      // As sson as one child with non-fixed-length is found, childStartCol will be set to UNKNOWN_COL
-      // for all subsequent children
-      if (childStartCol != UNKNOWN_COL) {
-        if (childNumCols == UNKNOWN_COL) {
-          childStartCol = UNKNOWN_COL;
-        } else {
-          childStartCol += childNumCols;
-        }
-      } 
     }
   }
 }

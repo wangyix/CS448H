@@ -250,7 +250,7 @@ ASTPtr parseFormat(const char** fptr, va_list* args) {
   if (**fptr != '\0') {
     throw DSLException(*fptr, "Unexpected character before end of format string.");
   }
-  if (root->lengthPtr->getFixedLength() == UNKNOWN_COL) {
+  if (root->getFixedLength() == UNKNOWN_COL) {
     throw DSLException(root->f_at, "Root content must be fixed-length.");
   }
   return root;
@@ -263,7 +263,8 @@ void dsl_printf(const char* format, ...) {
   ASTPtr root;
   try {
     root = parseFormat(&f_at, &args);
-    root->computeConsistentPos(0, UNKNOWN_COL);
+    root->convertLLSharesToLength();
+    root->computeStartCol(0);
 
     root->print();
     printf("\n");

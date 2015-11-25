@@ -22,13 +22,11 @@ public:
 struct Length {
   Length() {}
   virtual void print() const = 0;
-  virtual int getFixedLength() const = 0;
 };
 
 struct SpecifiedLength : public Length {
   SpecifiedLength(bool shares) : shares(shares) {}
   virtual void print() const override = 0;
-  virtual int getFixedLength() const override = 0;
 
   bool shares;
 };
@@ -37,7 +35,6 @@ struct LiteralLength : public SpecifiedLength {
   LiteralLength(int value, bool shares)
     : SpecifiedLength(shares), value(value) {}
   void print() const override;
-  int getFixedLength() const override { return shares ? UNKNOWN_COL : value; }
 
   int value;
 };
@@ -46,15 +43,8 @@ struct FunctionLength : public SpecifiedLength {
   FunctionLength(LengthFunc lengthFunc, bool shares)
     : SpecifiedLength(shares), lengthFunc(lengthFunc) {}
   void print() const override;
-  int getFixedLength() const override { return UNKNOWN_COL; }
 
   LengthFunc lengthFunc;
-};
-
-struct GreedyLength : public Length {
-  GreedyLength() {}
-  void print() const override {};
-  int getFixedLength() const override { return UNKNOWN_COL; }
 };
 
 // -------------------------------------------------------------------------------------------------
@@ -63,19 +53,20 @@ class Visitor;
 enum NodeType:int{ STRING_LITERAL, REPEATED_CHAR, REPEATED_CHAR_FL, WORDS, BLOCK };
 
 struct AST {
-  AST(NodeType type, const char* f_at, Length* lengthPtr)
-    : type(type), f_at(f_at), lengthPtr(lengthPtr), startCol(UNKNOWN_COL), numCols(UNKNOWN_COL) {}
+  AST(NodeType type, const char* f_at)
+    : type(type), f_at(f_at), startCol(UNKNOWN_COL) {}
   virtual void print() const = 0;
   virtual void accept(Visitor* v) = 0;
+  virtual int getFixedLength() const = 0;
+  virtual LiteralLength* getLiteralLength() = 0;
 
-  virtual void computeConsistentPos(int startColHint, int numColsHint);
+  virtual void convertLLSharesToLength();
+  virtual void computeStartCol(int start);
   
   NodeType type;
   const char* f_at;   // position in the format string where this node is specified
-  Length* lengthPtr;
 
   int startCol;     // starting column of this content
-  int numCols;      // width of this content
 };
 
 typedef std::unique_ptr<AST> ASTPtr;
@@ -84,7 +75,9 @@ typedef std::unique_ptr<AST> ASTPtr;
 
 struct Filler : public AST {
   Filler(NodeType type, const char* f_at, const LiteralLength& length)
-    : AST(type, f_at, &this->length), length(length) {}
+    : AST(type, f_at), length(length) {}
+  int getFixedLength() const override { return length.shares ? UNKNOWN_COL : length.value; }
+  LiteralLength* getLiteralLength() override { return &length; }
 
   LiteralLength length;
 };
@@ -115,9 +108,11 @@ struct RepeatedCharLL : public Filler {
 
 struct RepeatedCharFL : public AST {
   RepeatedCharFL(const char* f_at, const FunctionLength& length, char c)
-    : AST(REPEATED_CHAR_FL, f_at, &this->length), length(length), c(c) {}
+    : AST(REPEATED_CHAR_FL, f_at), length(length), c(c) {}
   void print() const override;
   void accept(Visitor* v) override;
+  int getFixedLength() const override { return UNKNOWN_COL; }
+  LiteralLength* getLiteralLength() override { return NULL; }
 
   FunctionLength length;
   char c;
@@ -125,11 +120,12 @@ struct RepeatedCharFL : public AST {
 
 struct Words : public AST {
   Words(const char* f_at, const std::string& source, char wordSilhouette = '\0')
-    : AST(WORDS, f_at, &this->length), source(source), wordSilhouette(wordSilhouette) {}
+    : AST(WORDS, f_at), source(source), wordSilhouette(wordSilhouette) {}
   void print() const override;
   void accept(Visitor* v) override;
+  int getFixedLength() const override { return UNKNOWN_COL; }
+  LiteralLength* getLiteralLength() override { return NULL; }
 
-  GreedyLength length;
   std::string source;
   std::vector<FillerPtr> interwordFillers;
   char wordSilhouette;        // use '\0' if unused
@@ -139,15 +135,18 @@ typedef std::unique_ptr<Words> WordsPtr;
 
 struct Block : public AST {
   Block(const char* f_at, const LiteralLength& length)
-    : AST(BLOCK, f_at, &this->length), length(length), greedyChildIndex(-1), hasFLChild(false) {}
+    : AST(BLOCK, f_at), length(length), greedyChildIndex(-1), hasFLChild(false) {}
   void print() const override;
   void accept(Visitor* v) override;
+  int getFixedLength() const override { return length.shares ? UNKNOWN_COL : length.value; }
+  LiteralLength* getLiteralLength() override { return &length; }
 
   void addChild(ASTPtr child);
   void addGreedyChild(ASTPtr words);
   bool hasGreedyChild() const;
 
-  void computeConsistentPos(int startColHint, int numColsHint) override;
+  void convertLLSharesToLength() override;
+  void computeStartCol(int start) override;
 
   LiteralLength length;
   std::vector<ASTPtr> children;
