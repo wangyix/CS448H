@@ -139,7 +139,7 @@ struct Words : public AST {
 
 struct Block : public AST {
   Block(const char* f_at, const LiteralLength& length)
-    : AST(BLOCK, f_at), length(length), greedyChildIndex(-1), hasFLChild(false) {}
+    : AST(BLOCK, f_at), length(length), wordsIndex(-1), hasFLChild(false) {}
   void print() const override;
   void accept(Visitor* v) override;
   int getFixedLength() const override { return length.shares ? UNKNOWN_COL : length.value; }
@@ -156,7 +156,7 @@ struct Block : public AST {
 
   LiteralLength length;
   std::vector<ASTPtr> children;
-  int greedyChildIndex;   // use value < 0 if no greedy child
+  int wordsIndex;   // use value < 0 if no greedy child
   bool hasFLChild;        // whether or not any children have function-length.
   std::vector<FillerPtr> topFillers;
   std::vector<FillerPtr> bottomFillers;

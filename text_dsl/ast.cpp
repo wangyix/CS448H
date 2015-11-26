@@ -79,11 +79,11 @@ void Block::addChild(ASTPtr child) {
 }
 void Block::addGreedyChild(ASTPtr words) {
   assert(!hasGreedyChild());
-  greedyChildIndex = children.size();
+  wordsIndex = children.size();
   children.push_back(std::move(words));
 }
 bool Block::hasGreedyChild() const {
-  return greedyChildIndex >= 0;
+  return wordsIndex >= 0;
 }
 
 void ConsistentContent::print() const {
@@ -407,7 +407,7 @@ void Block::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool first
   firstInParent = true;
   for (int i = 0; i < children.size(); ++i) {
     ASTPtr& child = children[i];
-    child->flatten(child, ccs, firstInParent, i == greedyChildIndex, topFillersStack, bottomFillersStack);
+    child->flatten(child, ccs, firstInParent, i == wordsIndex, topFillersStack, bottomFillersStack);
     firstInParent = false;
   }
   topFillersStack->erase(topFillersStack->end() - topFillers.size(), topFillersStack->end());
