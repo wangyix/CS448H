@@ -68,7 +68,7 @@ struct AST {
 
   virtual void convertLLSharesToLength();
   virtual void computeStartEndCols(int start, int end);
-  virtual void flatten(ASTPtr self, std::vector<ConsistentContent>* ccs,
+  virtual void flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent, bool isWords,
     std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack);
   
   NodeType type;
@@ -151,7 +151,7 @@ struct Block : public AST {
 
   void convertLLSharesToLength() override;
   void computeStartEndCols(int start, int end) override;
-  void flatten(ASTPtr self, std::vector<ConsistentContent>* ccs,
+  void flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent, bool isWords,
     std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) override;
 
   LiteralLength length;
@@ -167,14 +167,20 @@ struct Block : public AST {
 // If one child, then child must be consistent.
 // If multiple children, then first and last children must be inconsistent
 struct ConsistentContent {
-  ConsistentContent(int startCol, int endCol) : startCol(startCol), endCol(endCol) {}
+  ConsistentContent(bool childrenConsistent, int startCol, int endCol)
+    : childrenConsistent(childrenConsistent), wordsIndex(UNKNOWN_COL), startCol(startCol), endCol(endCol) {}
   void print() const;
 
+  bool childrenConsistent;  // true if all children startCol and endCol are known (line-independent)
   std::vector<ASTPtr> children;
+  int wordsIndex;
   int startCol;
   int endCol;
   std::vector<FillerPtr> topFillers;
   std::vector<FillerPtr> bottomFillers;
 };
+
+
+
 
 #endif

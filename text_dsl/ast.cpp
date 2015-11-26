@@ -304,43 +304,87 @@ void Block::computeStartEndCols(int start, int end) {
   // some content varies line-by-line, so only consecutive fixed-length children starting from
   // either end of this block have consistent starting positions.
   int i = 0;  // start index from left, iterate until a non-fixed-length child is found
+  int iStartCol = startCol;
   {
-    int childStartCol = startCol;
     for (; i < children.size(); ++i) {
       const ASTPtr& child = children[i];
       int childEndCol = UNKNOWN_COL;
       int childNumCols = child->getFixedLength();
       if (childNumCols != UNKNOWN_COL) {
-        childEndCol = childStartCol + childNumCols;
-      }
-      child->computeStartEndCols(childStartCol, childEndCol);
-      if (childEndCol == UNKNOWN_COL) {
+        childEndCol = iStartCol + childNumCols;
+      } else {
         break;
       }
-      childStartCol = childEndCol;
+      child->computeStartEndCols(iStartCol, childEndCol);
+      iStartCol = childEndCol;
     }
   }
-  int j = children.size() - 1;  // start index from right, iterate until a non-fixed-length child is found
-  {
-    int childEndCol = endCol;
-    for (; j > i; --j) {
+  int jEndCol = endCol;
+  if (i < children.size()) {
+    // start index from right, iterate up to not including child i
+    for (int j = children.size() - 1; j > i; --j) {
       const ASTPtr& child = children[j];
       int childStartCol = UNKNOWN_COL;
       int childNumCols = child->getFixedLength();
-      if (childNumCols != UNKNOWN_COL && childEndCol != UNKNOWN_COL) {
-        childStartCol = childEndCol - childNumCols;
+      if (childNumCols != UNKNOWN_COL && jEndCol != UNKNOWN_COL) {
+        childStartCol = jEndCol - childNumCols;
       }
-      child->computeStartEndCols(childStartCol, childEndCol);
-      childEndCol = childStartCol;
+      child->computeStartEndCols(childStartCol, jEndCol);
+      jEndCol = childStartCol;
     }
+    children[i]->computeStartEndCols(iStartCol, jEndCol);
   }
 }
 
 
-void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs,
+void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent, bool isWords,
                   std::vector<FillerPtr>* topFillersStack,
                   std::vector<FillerPtr>* bottomFillersStack) {
+  bool startNewCC;
+  bool newCCChildrenConsistent;
+  
+  bool ccsEmptyOrFillersChanged;
   ConsistentContent* cc = NULL;
+  if (ccs->empty()) {
+    ccsEmptyOrFillersChanged = true;
+  } else {
+    cc = &ccs->back();
+    if (firstInParent) {
+      ccsEmptyOrFillersChanged = (cc->topFillers != *topFillersStack || cc->bottomFillers != *bottomFillersStack);
+    } else {
+      ccsEmptyOrFillersChanged = false;
+    }
+  }
+
+  if (ccsEmptyOrFillersChanged) {
+    startNewCC = true;
+    newCCChildrenConsistent = (endCol != UNKNOWN_COL);
+  } else {
+    bool prevCCChildrenConsistent = ccs->back().childrenConsistent;
+    if (startCol == UNKNOWN_COL) {
+      startNewCC = false;
+      assert(!prevCCChildrenConsistent);
+    } else {
+      newCCChildrenConsistent = (endCol != UNKNOWN_COL);
+      startNewCC = (prevCCChildrenConsistent != newCCChildrenConsistent);
+    }
+  }
+  // if we're starting a new CC, its start must be consistent
+  assert(!startNewCC || startCol != UNKNOWN_COL);
+
+  if (startNewCC) {
+    ccs->push_back(ConsistentContent(newCCChildrenConsistent, startCol, UNKNOWN_COL));
+    cc = &ccs->back();
+    cc->topFillers = *topFillersStack;
+    cc->bottomFillers = *bottomFillersStack;
+  }
+  if (isWords) {
+    cc->wordsIndex = cc->children.size();
+  }
+  cc->children.push_back(self);
+  cc->endCol = endCol;
+
+  /*ConsistentContent* cc = NULL;
   if (startCol != UNKNOWN_COL) {
     ccs->push_back(ConsistentContent(startCol, UNKNOWN_COL));
     cc = &ccs->back();
@@ -352,16 +396,19 @@ void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs,
   cc->children.push_back(self);
   if (endCol != UNKNOWN_COL) {
     cc->endCol = endCol;
-  }
+  }*/
 }
 
-void Block::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs,
+void Block::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent, bool isWords,
                     std::vector<FillerPtr>* topFillersStack,
                     std::vector<FillerPtr>* bottomFillersStack) {
   topFillersStack->insert(topFillersStack->end(), topFillers.begin(), topFillers.end());
   bottomFillersStack->insert(bottomFillersStack->end(), bottomFillers.begin(), bottomFillers.end());
-  for (const ASTPtr& child : children) {
-    child->flatten(child, ccs, topFillersStack, bottomFillersStack);
+  firstInParent = true;
+  for (int i = 0; i < children.size(); ++i) {
+    ASTPtr& child = children[i];
+    child->flatten(child, ccs, firstInParent, i == greedyChildIndex, topFillersStack, bottomFillersStack);
+    firstInParent = false;
   }
   topFillersStack->erase(topFillersStack->end() - topFillers.size(), topFillersStack->end());
   bottomFillersStack->erase(bottomFillersStack->end() - bottomFillers.size(), bottomFillersStack->end());

@@ -262,7 +262,7 @@ void dsl_printf(const char* format, ...) {
   const char* f_at = format;
   ASTPtr root;
   try {
-    printf("%s\n", format);
+    printf("\n\n%s\n", format);
 
     root = parseFormat(&f_at, &args);
     root->convertLLSharesToLength();
@@ -271,14 +271,14 @@ void dsl_printf(const char* format, ...) {
     std::vector<ConsistentContent> ccs;
     bool prevBlockConsistent = true;
     std::vector<FillerPtr> topFillersStack, bottomFillersStack;
-    root->flatten(root, &ccs, &topFillersStack, &bottomFillersStack);
-    printf("\n");
+    root->flatten(root, &ccs, true, false, &topFillersStack, &bottomFillersStack);
+
     root->print();
-    printf("\n");
+    printf("\n\n");
 
     for (ConsistentContent& cc : ccs) {
-      printf("\n");
       cc.print();
+      printf("\n");
     }
 
   } catch (DSLException& e) {
