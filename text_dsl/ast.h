@@ -48,28 +48,35 @@ struct FunctionLength : public SpecifiedLength {
 };
 
 // -------------------------------------------------------------------------------------------------
-class Visitor;
+enum NodeType :int{ STRING_LITERAL, REPEATED_CHAR, REPEATED_CHAR_FL, WORDS, BLOCK };
 
-enum NodeType:int{ STRING_LITERAL, REPEATED_CHAR, REPEATED_CHAR_FL, WORDS, BLOCK };
+class Visitor;
+struct ConsistentContent;
+struct AST;
+struct Filler;
+
+typedef std::shared_ptr<AST> ASTPtr;
+typedef std::shared_ptr<Filler> FillerPtr;
 
 struct AST {
   AST(NodeType type, const char* f_at)
-    : type(type), f_at(f_at), startCol(UNKNOWN_COL) {}
+    : type(type), f_at(f_at), startCol(UNKNOWN_COL), endCol(UNKNOWN_COL) {}
   virtual void print() const = 0;
   virtual void accept(Visitor* v) = 0;
   virtual int getFixedLength() const = 0;
   virtual LiteralLength* getLiteralLength() = 0;
 
   virtual void convertLLSharesToLength();
-  virtual void computeStartCol(int start);
+  virtual void computeStartEndCols(int start, int end);
+  virtual void flatten(ASTPtr self, std::vector<ConsistentContent>* ccs,
+    std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack);
   
   NodeType type;
   const char* f_at;   // position in the format string where this node is specified
 
   int startCol;     // starting column of this content
+  int endCol;       // ending column of this content (1 past last)
 };
-
-typedef std::unique_ptr<AST> ASTPtr;
 
 // -------------------------------------------------------------------------------------------------
 
@@ -82,7 +89,6 @@ struct Filler : public AST {
   LiteralLength length;
 };
 
-typedef std::unique_ptr<Filler> FillerPtr;
 
 // -------------------------------------------------------------------------------------------------
 
@@ -131,12 +137,9 @@ struct Words : public AST {
   char wordSilhouette;        // use '\0' if unused
 };
 
-typedef std::unique_ptr<Words> WordsPtr;
-
 struct Block : public AST {
   Block(const char* f_at, const LiteralLength& length)
-    : AST(BLOCK, f_at), length(length), greedyChildIndex(-1), hasFLChild(false),
-    topFillers(new std::vector<FillerPtr>()), bottomFillers(new std::vector<FillerPtr>()) {}
+    : AST(BLOCK, f_at), length(length), greedyChildIndex(-1), hasFLChild(false) {}
   void print() const override;
   void accept(Visitor* v) override;
   int getFixedLength() const override { return length.shares ? UNKNOWN_COL : length.value; }
@@ -147,17 +150,31 @@ struct Block : public AST {
   bool hasGreedyChild() const;
 
   void convertLLSharesToLength() override;
-  void computeStartCol(int start) override;
+  void computeStartEndCols(int start, int end) override;
+  void flatten(ASTPtr self, std::vector<ConsistentContent>* ccs,
+    std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) override;
 
   LiteralLength length;
   std::vector<ASTPtr> children;
   int greedyChildIndex;   // use value < 0 if no greedy child
   bool hasFLChild;        // whether or not any children have function-length.
-  std::unique_ptr<std::vector<FillerPtr>> topFillers;
-  std::unique_ptr<std::vector<FillerPtr>> bottomFillers;
+  std::vector<FillerPtr> topFillers;
+  std::vector<FillerPtr> bottomFillers;
 };
 
 // -------------------------------------------------------------------------------------------------
 
+// If one child, then child must be consistent.
+// If multiple children, then first and last children must be inconsistent
+struct ConsistentContent {
+  ConsistentContent(int startCol, int endCol) : startCol(startCol), endCol(endCol) {}
+  void print() const;
+
+  std::vector<ASTPtr> children;
+  int startCol;
+  int endCol;
+  std::vector<FillerPtr> topFillers;
+  std::vector<FillerPtr> bottomFillers;
+};
 
 #endif

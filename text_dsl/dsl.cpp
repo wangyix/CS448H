@@ -221,14 +221,14 @@ ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
       ++*fptr;
       parseWhitespaces(fptr); // ] is a token
       if (**fptr == '^') {
-        parseTopOrBottomFiller(fptr, block->topFillers.get(), true);
+        parseTopOrBottomFiller(fptr, &block->topFillers, true);
         if (**fptr == 'v') {
-          parseTopOrBottomFiller(fptr, block->bottomFillers.get(), false);
+          parseTopOrBottomFiller(fptr, &block->bottomFillers, false);
         }
       } else if (**fptr == 'v') {
-        parseTopOrBottomFiller(fptr, block->bottomFillers.get(), false);
+        parseTopOrBottomFiller(fptr, &block->bottomFillers, false);
         if (**fptr == '^') {
-          parseTopOrBottomFiller(fptr, block->topFillers.get(), true);
+          parseTopOrBottomFiller(fptr, &block->topFillers, true);
         }
       }
     } else {
@@ -264,10 +264,21 @@ void dsl_printf(const char* format, ...) {
   try {
     root = parseFormat(&f_at, &args);
     root->convertLLSharesToLength();
-    root->computeStartCol(0);
+    root->computeStartEndCols(0, root->getFixedLength());
 
-    root->print();
+    std::vector<ConsistentContent> ccs;
+    bool prevBlockConsistent = true;
+    std::vector<FillerPtr> topFillersStack, bottomFillersStack;
+    root->flatten(root, &ccs, &topFillersStack, &bottomFillersStack);
     printf("\n");
+    //root->print();
+    printf("%s", format);
+    printf("\n");
+
+    for (ConsistentContent& cc : ccs) {
+      printf("\n");
+      cc.print();
+    }
 
   } catch (DSLException& e) {
     printf("%s\n", format);

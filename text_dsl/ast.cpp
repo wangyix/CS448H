@@ -59,11 +59,11 @@ void Block::print() const {
     child->print();
   }
   printf(" ]^{");
-  for (const FillerPtr& filler : *topFillers) {
+  for (const FillerPtr& filler : topFillers) {
     filler->print();
   }
   printf("}v{");
-  for (const FillerPtr& filler : *bottomFillers) {
+  for (const FillerPtr& filler : bottomFillers) {
     filler->print();
   }
   printf("}");
@@ -82,6 +82,23 @@ void Block::addGreedyChild(ASTPtr words) {
 }
 bool Block::hasGreedyChild() const {
   return greedyChildIndex >= 0;
+}
+
+void ConsistentContent::print() const {
+  printf("%d:%d[", startCol, endCol);
+  for (const ASTPtr& child : children) {
+    printf(" ");
+    child->print();
+  }
+  printf(" ]^{");
+  for (const FillerPtr& filler : topFillers) {
+    filler->print();
+  }
+  printf("}v{");
+  for (const FillerPtr& filler : bottomFillers) {
+    filler->print();
+  }
+  printf("}");
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -263,61 +280,83 @@ void Block::convertLLSharesToLength() {
 }
 
 
-void AST::computeStartCol(int start) {
+void AST::computeStartEndCols(int start, int end) {
   startCol = start;
-printf("\n%s\n", f_at);
-printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
+  endCol = end;
+//printf("\n%s\n", f_at);
+//printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
 }
 
-void Block::computeStartCol(int start) {
+void Block::computeStartEndCols(int start, int end) {
   startCol = start;
-  if (startCol == UNKNOWN_COL) {
-    throw DSLException(f_at, "Block start position is line-dependent.");
+  endCol = end;
+  if (startCol == UNKNOWN_COL || endCol == UNKNOWN_COL) {
+    throw DSLException(f_at, "Block bondaries are line-dependent.");
   }
-printf("\n%s\n", f_at);
-printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
+  assert(endCol - startCol == length.value);
+//printf("\n%s\n", f_at);
+//printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
 
   // some content varies line-by-line, so only consecutive fixed-length children starting from
   // either end of this block have consistent starting positions.
-  int childStartCol = startCol;
   int i = 0;  // start index from left, iterate until a non-fixed-length child is found
-  for (; i < children.size(); ++i) {
-    const ASTPtr& child = children[i];
-    child->computeStartCol(childStartCol);
-    int childNumCols = child->getFixedLength();
-    if (childNumCols == UNKNOWN_COL) {
-      break;
+  {
+    int childStartCol = startCol;
+    for (; i < children.size(); ++i) {
+      const ASTPtr& child = children[i];
+      int childEndCol = UNKNOWN_COL;
+      int childNumCols = child->getFixedLength();
+      if (childNumCols != UNKNOWN_COL) {
+        childEndCol = childStartCol + childNumCols;
+      }
+      child->computeStartEndCols(childStartCol, childEndCol);
+      if (childEndCol == UNKNOWN_COL) {
+        break;
+      }
+      childStartCol = childEndCol;
     }
-    childStartCol += childNumCols;
   }
   int j = children.size() - 1;  // start index from right, iterate until a non-fixed-length child is found
-  childStartCol = startCol + length.value;
-  for (; j > i; --j) {
-    const ASTPtr& child = children[j];
-    int childNumCols = child->getFixedLength();
-    if (childNumCols == UNKNOWN_COL) {
-      break;
+  {
+    int childEndCol = endCol;
+    for (; j > i; --j) {
+      const ASTPtr& child = children[j];
+      int childStartCol = UNKNOWN_COL;
+      int childNumCols = child->getFixedLength();
+      if (childNumCols != UNKNOWN_COL && childEndCol != UNKNOWN_COL) {
+        childStartCol = childEndCol - childNumCols;
+      }
+      child->computeStartEndCols(childStartCol, childNumCols);
+      childEndCol = childStartCol;
     }
-    childStartCol -= childNumCols;
-    child->computeStartCol(childStartCol);
   }
 }
 
 
-void AST::flatten(std::vector<BlockPtr>* flatBlocks, ) {
-  Block* b = flatBlocks->back().get();
-  int numCols = getFixedLength();
-  if (startCol != UNKNOWN_COL && numCols != UNKNOWN_COL) {
-    b = new Block(f_at, LiteralLength(numCols, false));
-    flatBlocks->push_back(BlockPtr(b));
-    b->startCol = startCol;
-    b->addChild()
+void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs,
+                  std::vector<FillerPtr>* topFillersStack,
+                  std::vector<FillerPtr>* bottomFillersStack) {
+  ConsistentContent* cc = &ccs->back();
+  if (startCol != UNKNOWN_COL) {
+    ccs->push_back(ConsistentContent(startCol, UNKNOWN_COL));
+    cc = &ccs->back();
+    cc->topFillers = *topFillersStack;
+    cc->bottomFillers = *bottomFillersStack;
   }
-  
+  cc->children.push_back(self);
+  if (endCol != UNKNOWN_COL) {
+    cc->endCol = endCol;
+  }
 }
 
-void Block::flatten(std::vector<BlockPtr>* flatBlocks) {
+void Block::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs,
+                    std::vector<FillerPtr>* topFillersStack,
+                    std::vector<FillerPtr>* bottomFillersStack) {
+  topFillersStack->insert(topFillersStack->end(), topFillers.begin(), topFillers.end());
+  bottomFillersStack->insert(bottomFillersStack->end(), bottomFillers.begin(), bottomFillers.end());
   for (const ASTPtr& child : children) {
-    child->flatten(flatBlocks);
+    child->flatten(child, ccs, topFillersStack, bottomFillersStack);
   }
+  topFillersStack->erase(topFillersStack->end() - topFillers.size(), topFillersStack->end());
+  bottomFillersStack->erase(bottomFillersStack->end() - bottomFillers.size(), bottomFillersStack->end());
 }
