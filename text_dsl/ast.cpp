@@ -60,13 +60,15 @@ void Block::print() const {
   }
   printf(" ]^{");
   for (const FillerPtr& filler : topFillers) {
+    printf(" ");
     filler->print();
   }
-  printf("}v{");
+  printf(" }v{");
   for (const FillerPtr& filler : bottomFillers) {
+    printf(" ");
     filler->print();
   }
-  printf("}");
+  printf(" }");
 }
 
 void Block::addChild(ASTPtr child) {
@@ -85,20 +87,22 @@ bool Block::hasGreedyChild() const {
 }
 
 void ConsistentContent::print() const {
-  printf("%d:%d[", startCol, endCol);
+  printf("%d:%d [", startCol, endCol);
   for (const ASTPtr& child : children) {
     printf(" ");
     child->print();
   }
   printf(" ]^{");
   for (const FillerPtr& filler : topFillers) {
+    printf(" ");
     filler->print();
   }
-  printf("}v{");
+  printf(" }v{");
   for (const FillerPtr& filler : bottomFillers) {
+    printf(" ");
     filler->print();
   }
-  printf("}");
+  printf(" }");
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -284,18 +288,18 @@ void AST::computeStartEndCols(int start, int end) {
   startCol = start;
   endCol = end;
 //printf("\n%s\n", f_at);
-//printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
+//printf("\t%d:%d, %d\n", startCol, endCol, getFixedLength());
 }
 
 void Block::computeStartEndCols(int start, int end) {
   startCol = start;
   endCol = end;
+//printf("\n%s\n", f_at);
+//printf("\t%d:%d, %d\n", startCol, endCol, getFixedLength());
   if (startCol == UNKNOWN_COL || endCol == UNKNOWN_COL) {
     throw DSLException(f_at, "Block bondaries are line-dependent.");
   }
   assert(endCol - startCol == length.value);
-//printf("\n%s\n", f_at);
-//printf("\tstartCol = %d, numCols = %d\n", startCol, getFixedLength());
 
   // some content varies line-by-line, so only consecutive fixed-length children starting from
   // either end of this block have consistent starting positions.
@@ -326,7 +330,7 @@ void Block::computeStartEndCols(int start, int end) {
       if (childNumCols != UNKNOWN_COL && childEndCol != UNKNOWN_COL) {
         childStartCol = childEndCol - childNumCols;
       }
-      child->computeStartEndCols(childStartCol, childNumCols);
+      child->computeStartEndCols(childStartCol, childEndCol);
       childEndCol = childStartCol;
     }
   }
@@ -336,12 +340,14 @@ void Block::computeStartEndCols(int start, int end) {
 void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs,
                   std::vector<FillerPtr>* topFillersStack,
                   std::vector<FillerPtr>* bottomFillersStack) {
-  ConsistentContent* cc = &ccs->back();
+  ConsistentContent* cc = NULL;
   if (startCol != UNKNOWN_COL) {
     ccs->push_back(ConsistentContent(startCol, UNKNOWN_COL));
     cc = &ccs->back();
     cc->topFillers = *topFillersStack;
     cc->bottomFillers = *bottomFillersStack;
+  } else {
+    cc = &ccs->back();
   }
   cc->children.push_back(self);
   if (endCol != UNKNOWN_COL) {

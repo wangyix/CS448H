@@ -262,6 +262,8 @@ void dsl_printf(const char* format, ...) {
   const char* f_at = format;
   ASTPtr root;
   try {
+    printf("%s\n", format);
+
     root = parseFormat(&f_at, &args);
     root->convertLLSharesToLength();
     root->computeStartEndCols(0, root->getFixedLength());
@@ -271,8 +273,7 @@ void dsl_printf(const char* format, ...) {
     std::vector<FillerPtr> topFillersStack, bottomFillersStack;
     root->flatten(root, &ccs, &topFillersStack, &bottomFillersStack);
     printf("\n");
-    //root->print();
-    printf("%s", format);
+    root->print();
     printf("\n");
 
     for (ConsistentContent& cc : ccs) {
