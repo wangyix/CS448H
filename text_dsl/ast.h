@@ -64,8 +64,7 @@ struct AST {
 
   virtual void convertLLSharesToLength();
   virtual void computeStartEndCols(int start, int end);
-  virtual void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
-    std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack);
+  virtual void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent);
   
   NodeType type;
   const char* f_at;   // position in the format string where this node is specified
@@ -154,8 +153,7 @@ struct Block : public AST {
 
   void convertLLSharesToLength() override;
   void computeStartEndCols(int start, int end) override;
-  void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
-    std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) override;
+  void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent) override;
 
   LiteralLength length;
   std::vector<ASTPtr> children;
@@ -189,8 +187,6 @@ struct ConsistentContent {
   const Words* words;
   int startCol;
   int endCol;
-  std::vector<FillerPtr> topFillers;
-  std::vector<FillerPtr> bottomFillers;
 
   const char* s_at;
   int interwordFixedLength;

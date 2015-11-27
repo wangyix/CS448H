@@ -104,7 +104,8 @@ void ConsistentContent::print() const {
     printf(" ");
     child->print();
   }
-  printf(" ]^{");
+  printf(" ]");
+  /*printf("^{");
   for (const FillerPtr& filler : topFillers) {
     printf(" ");
     filler->print();
@@ -114,7 +115,7 @@ void ConsistentContent::print() const {
     printf(" ");
     filler->print();
   }
-  printf(" }");
+  printf(" }");*/
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -292,9 +293,7 @@ void Block::computeStartEndCols(int start, int end) {
 }
 
 
-void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
-                  std::vector<FillerPtr>* topFillersStack,
-                  std::vector<FillerPtr>* bottomFillersStack) {
+void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent) {
   bool startNewCC;
   bool newCCChildrenConsistent;
   
@@ -318,8 +317,6 @@ void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* cc
   if (startNewCC) {
     ccs->push_back(ConsistentContent(parent, newCCChildrenConsistent, startCol, UNKNOWN_COL));
     cc = &ccs->back();
-    cc->topFillers = *topFillersStack;
-    cc->bottomFillers = *bottomFillersStack;
   } else {
     assert(!ccs->empty());
     cc = &ccs->back();
@@ -333,19 +330,13 @@ void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* cc
   cc->endCol = endCol;
 }
 
-void Block::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
-                    std::vector<FillerPtr>* topFillersStack,
-                    std::vector<FillerPtr>* bottomFillersStack) {
-  topFillersStack->insert(topFillersStack->end(), topFillers.begin(), topFillers.end());
-  bottomFillersStack->insert(bottomFillersStack->end(), bottomFillers.begin(), bottomFillers.end());
+void Block::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent) {
   firstInParent = true;
   for (int i = 0; i < children.size(); ++i) {
     ASTPtr& child = children[i];
-    child->flatten(child, self, ccs, firstInParent, topFillersStack, bottomFillersStack);
+    child->flatten(child, self, ccs, firstInParent);
     firstInParent = false;
   }
-  topFillersStack->erase(topFillersStack->end() - topFillers.size(), topFillersStack->end());
-  bottomFillersStack->erase(bottomFillersStack->end() - bottomFillers.size(), bottomFillersStack->end());
 }
  
 
