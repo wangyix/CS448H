@@ -277,9 +277,16 @@ void dsl_printf(const char* format, ...) {
     printf("\n\n");
 
     for (ConsistentContent& cc : ccs) {
+      printf("\n\n");
       cc.print();
       printf("\n");
+      cc.generateCCLines();
+      for (CCLine& line : cc.lines) {
+        line.printContent();
+        printf("\n");
+      }
     }
+
 
   } catch (DSLException& e) {
     printf("%s\n", format);

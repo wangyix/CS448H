@@ -129,8 +129,7 @@ void Block::accept(Visitor* v) {
 
 // -------------------------------------------------------------------------------------------------
 
-static void llSharesToLength(int totalLength, const std::vector<LiteralLength*>& lls,
-                                    const char* f_at) {
+void llSharesToLength(int totalLength, const std::vector<LiteralLength*>& lls, const char* f_at) {
   int lengthRemaining = totalLength;
   int totalShareCount = 0;
   std::vector<LiteralLength*> shareLLs;
@@ -173,7 +172,7 @@ static void llSharesToLength(int totalLength, const std::vector<LiteralLength*>&
   while (lengthRemaining >= shareLLs.size()) {
     for (int i = 0; i < shareLLs.size(); ++i) {
       shareLLs[i]->value++;
-      deltas[i]--;
+      deltas[i] -= 1.f;
     }
     lengthRemaining -= shareLLs.size();
   }
@@ -196,64 +195,6 @@ static void llSharesToLength(int totalLength, const std::vector<LiteralLength*>&
   }
   assert(lengthRemaining == 0);
 }
-
-/*static void computeShareLengths(int totalLength, const std::vector<int> shareCounts,
-                                std::vector<int>* lengths, const char* f_at) {
-  assert(totalLength >= 0);
-  int totalShareCount = 0;
-  for (int count : shareCounts) {
-    totalShareCount += count;
-  }
-  if (totalShareCount == 0) {
-    if (totalLength > 0) {
-      throw DSLException(f_at, "No share-length content to distribute remaining length to.");
-    }
-    // Distributing 0 length amongst 0 total shares is fine: all resulting lengths are 0.
-    *lengths = std::vector<int>(shareCounts.size(), 0);
-    return;
-  }
-  // Initially, distribute from the total length so that each length is the floor of its target
-  // value based on uniform shares.
-  float avgShareLength = totalLength / (float)totalShareCount;
-  *lengths = std::vector<int>(shareCounts.size());
-  std::vector<float> deltas(shareCounts.size());
-  int lengthRemaining = totalLength;
-  for (int i = 0; i < shareCounts.size(); ++i) {
-    float targetLength = shareCounts[i] * avgShareLength;
-    int length = floorf(targetLength);
-    (*lengths)[i] = length;
-    deltas[i] = targetLength - length;
-    lengthRemaining -= length;
-  }
-  // lengthRemaining should be less than shareCounts.size(), but do this anyway in case of numerical
-  // error
-  while (lengthRemaining >= shareCounts.size()) {
-    for (int i = 0; i < shareCounts.size(); ++i) {
-      (*lengths)[i]++;
-      deltas[i]--;
-    }
-    lengthRemaining -= shareCounts.size();
-  }
-  // Distribute remaining length to the lengths with the largest deltas.
-  int n = deltas.size() - 1 - lengthRemaining;
-  std::vector<float> deltasCopy(deltas);
-  std::nth_element(deltasCopy.begin(), deltasCopy.begin() + n, deltasCopy.end());
-  float deltaThreshold = deltasCopy[n];
-  for (int i = 0; i < shareCounts.size() && lengthRemaining > 0; ++i) {
-    if (deltas[i] > deltaThreshold) {
-      (*lengths)[i]++;
-      --lengthRemaining;
-    }
-  }
-  for (int i = 0; i < shareCounts.size() && lengthRemaining > 0; ++i) {
-    if (deltas[i] == deltaThreshold) {
-      (*lengths)[i]++;
-      --lengthRemaining;
-    }
-  }
-  assert(lengthRemaining == 0);
-}
-*/
 
 
 void AST::convertLLSharesToLength() {
@@ -422,6 +363,21 @@ const char* parseUntilWhitespace(const char* s_at) {
   return s_at;
 }
 
+void deepCopy(const std::vector<FillerPtr>& src, std::vector<FillerPtr>* dst) {
+  dst->clear();
+  for (const FillerPtr& filler : src) {
+    if (filler->type == REPEATED_CHAR_LL) {
+      const RepeatedCharLL* rcLL = static_cast<const RepeatedCharLL*>(filler.get());
+      dst->push_back(FillerPtr(new RepeatedCharLL(*rcLL)));
+    } else {
+      const StringLiteral* sl = static_cast<const StringLiteral*>(filler.get());
+      dst->push_back(FillerPtr(new StringLiteral(*sl))); 
+      // deep copy of StringLiteral not really needed for our purposes, but do it anyway in case
+      //dst->push_back(filler);
+    }
+  }
+}
+
 int wordsToContents(const char** s_at,
                     const std::vector<FillerPtr>& interwordFillers, int interwordMinLength,
                     int lineMaxLength, std::vector<FillerPtr>* lineContents, const char* f_at) {
@@ -459,7 +415,9 @@ int wordsToContents(const char** s_at,
       int wordLength = wordEnd - *s_at;
       assert(wordLength > 0);
       if (interwordMinLength + wordLength <= remainingLength) {
-        lineContents->insert(lineContents->end(), interwordFillers.begin(), interwordFillers.end());
+        std::vector<FillerPtr> interwordsCopy;
+        deepCopy(interwordFillers, &interwordsCopy);
+        lineContents->insert(lineContents->end(), interwordsCopy.begin(), interwordsCopy.end());
         lineContents->push_back(FillerPtr(new StringLiteral(f_at, *s_at, wordLength)));
         *s_at = wordEnd;
         remainingLength -= (interwordMinLength + wordLength);
@@ -480,9 +438,12 @@ void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
   // add the non-word contents of this CC, with any function lengths evaluated to literal length
   for (const ASTPtr& child : children) {
     switch (child->type) {
-    case STRING_LITERAL:
-      lineContents->push_back(std::static_pointer_cast<Filler>(child));
-      break;
+    case STRING_LITERAL: {
+      const StringLiteral* sl = static_cast<const StringLiteral*>(child.get());
+      lineContents->push_back(FillerPtr(new StringLiteral(*sl)));
+      // deep copy of StringLiteral not really needed for our purposes, but do it anyway in case
+      //lineContents->push_back(std::static_pointer_cast<Filler>(child));
+    } break;
     case REPEATED_CHAR_LL: {
       const RepeatedCharLL* rcLL = static_cast<const RepeatedCharLL*>(child.get());
       lineContents->push_back(FillerPtr(new RepeatedCharLL(*rcLL)));
@@ -501,28 +462,40 @@ void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
   if (childrenConsistent) {
     return;
   }
+
   // If this CC has words, insert additional content into lineContents at the wordsIndex that represent
   // the words.
   if (words != NULL) {
-    interwordFixedLength = 0;
-    for (const FillerPtr& filler : words->interwordFillers) {
-      if (!filler->length.shares) {
-        interwordFixedLength += filler->length.value;
-      }
-    }
     int maxWordsLength = totalLength;
-    for (const FillerPtr& filler : *lineContents) {
-      if (!filler->length.shares) {
-        maxWordsLength -= filler->length.value;
+    for (const FillerPtr& lineContent : *lineContents) {
+      if (!lineContent->length.shares) {
+        maxWordsLength -= lineContent->length.value;
       }
     }
     if (maxWordsLength <= 0) {
       throw DSLException(words->f_at, "No length remaining for words.");
     }
+
+    // Convert source text into contents (StringLiterals for words, Fillers for interwords).
+    // Convert as much of the source as can fit in this line.
     std::vector<FillerPtr> wordsContents;
     wordsToContents(&s_at, words->interwordFillers, interwordFixedLength, maxWordsLength, &wordsContents, words->f_at);
+    // If the resulting wordsContents has any shares, then distribute any unused words length to them.
+    // If the interword fillers have shares and more than 1 word from the source was put in wordsContent,
+    // the wordsContents has shares.
+    if (interwordHasShares && wordsContents.size() > 1) {
+      std::vector<LiteralLength*> lls;
+      for (const FillerPtr& filler : wordsContents) {
+        lls.push_back(&filler->length);
+      }
+      llSharesToLength(maxWordsLength, lls, words->f_at);
+    }
+
+    // Insert the converted words contents into the line contents at the index where the Words child
+    // is.
     lineContents->insert(lineContents->begin() + wordsIndex, wordsContents.begin(), wordsContents.end());
   }
+
   // Compute the share lengths of the line contents
   std::vector<LiteralLength*> lls;
   for (const FillerPtr& filler : *lineContents) {
@@ -534,7 +507,17 @@ void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
 void ConsistentContent::generateCCLines() {
   lines.clear();
   if (words != NULL) {
+    // initialize s_at to beginning of source; compute interwordHasShares and interwordFixedLength
     s_at = words->source.c_str();
+    interwordFixedLength = 0;
+    interwordHasShares = false;
+    for (const FillerPtr& filler : words->interwordFillers) {
+      if (!filler->length.shares) {
+        interwordFixedLength += filler->length.value;
+      } else {
+        interwordHasShares = true;
+      }
+    }
     while (*s_at != '\0') {
       lines.push_back(CCLine());
       generateCCLine(lines.size() - 1, &lines.back());

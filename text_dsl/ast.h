@@ -81,6 +81,7 @@ struct Filler : public AST {
     : AST(type, f_at), length(length) {}
   int getFixedLength() const override { return length.shares ? UNKNOWN_COL : length.value; }
   LiteralLength* getLiteralLength() override { return &length; }
+  virtual void printContent() const = 0;
 
   LiteralLength length;
 };
@@ -95,6 +96,7 @@ struct StringLiteral : public Filler {
     : Filler(STRING_LITERAL, f_at, LiteralLength((int)size, false)), str(str, size) {}
   void print() const override;
   void accept(Visitor* v) override;
+  void printContent() const override { printf("%s", str.c_str()); }
 
   std::string str;
 };
@@ -104,6 +106,7 @@ struct RepeatedCharLL : public Filler {
     : Filler(REPEATED_CHAR_LL, f_at, length), c(c) {}
   void print() const override;
   void accept(Visitor* v) override;
+  void printContent() const override { for (int i = 0; i < length.value; ++i) putchar(c); }
 
   char c;
 };
@@ -170,7 +173,8 @@ struct CCLine;
 struct ConsistentContent {
   ConsistentContent(bool childrenConsistent, int startCol, int endCol)
     : childrenConsistent(childrenConsistent), wordsIndex(UNKNOWN_COL), words(NULL),
-    startCol(startCol), endCol(endCol), s_at(NULL), interwordFixedLength(UNKNOWN_COL) {}
+    startCol(startCol), endCol(endCol), s_at(NULL), interwordFixedLength(UNKNOWN_COL),
+    interwordHasShares(false) {}
   void print() const;
   void generateCCLine(int lineNum, CCLine* line);
   void generateCCLines();
@@ -186,11 +190,13 @@ struct ConsistentContent {
 
   const char* s_at;
   int interwordFixedLength;
+  bool interwordHasShares;
   std::vector<CCLine> lines;
 };
 
 
 struct CCLine {
+  void printContent() const { for (const FillerPtr& c : contents) c->printContent(); }
   std::vector<FillerPtr> contents;
 };
 
