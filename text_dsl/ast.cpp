@@ -280,6 +280,20 @@ void Block::computeStartEndCols(int start, int end) {
   }
 }
 
+void deepCopy(const std::vector<FillerPtr>& src, std::vector<FillerPtr>* dst) {
+  dst->clear();
+  for (const FillerPtr& filler : src) {
+    if (filler->type == REPEATED_CHAR_LL) {
+      const RepeatedCharLL* rcLL = static_cast<const RepeatedCharLL*>(filler.get());
+      dst->push_back(FillerPtr(new RepeatedCharLL(*rcLL)));
+    } else {
+      const StringLiteral* sl = static_cast<const StringLiteral*>(filler.get());
+      dst->push_back(FillerPtr(new StringLiteral(*sl)));
+      // deep copy of StringLiteral not really needed for our purposes, but do it anyway in case
+      //dst->push_back(filler);
+    }
+  }
+}
 
 void AST::flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent>* ccs, bool firstInParent,
                   std::vector<FillerPtr>* topFillersStack,
@@ -307,8 +321,8 @@ void AST::flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent>*
   if (startNewCC) {
     ccs->push_back(ConsistentContent(f_at, newCCChildrenConsistent, startCol, UNKNOWN_COL));
     cc = &ccs->back();
-    cc->topFillers = *topFillersStack;
-    cc->bottomFillers = *bottomFillersStack;
+    deepCopy(*topFillersStack, &cc->topFillers);
+    deepCopy(*bottomFillersStack, &cc->bottomFillers);
   } else {
     assert(!ccs->empty());
     cc = &ccs->back();
@@ -354,21 +368,6 @@ const char* parseUntilWhitespace(const char* s_at) {
     ++s_at;
   }
   return s_at;
-}
-
-void deepCopy(const std::vector<FillerPtr>& src, std::vector<FillerPtr>* dst) {
-  dst->clear();
-  for (const FillerPtr& filler : src) {
-    if (filler->type == REPEATED_CHAR_LL) {
-      const RepeatedCharLL* rcLL = static_cast<const RepeatedCharLL*>(filler.get());
-      dst->push_back(FillerPtr(new RepeatedCharLL(*rcLL)));
-    } else {
-      const StringLiteral* sl = static_cast<const StringLiteral*>(filler.get());
-      dst->push_back(FillerPtr(new StringLiteral(*sl))); 
-      // deep copy of StringLiteral not really needed for our purposes, but do it anyway in case
-      //dst->push_back(filler);
-    }
-  }
 }
 
 FillerPtr wordtoContent(const char* src, int size, char silhouette, const char* f_at) {
@@ -533,4 +532,50 @@ printf("\n");
 lines.back().printContent();
 printf("\n");
   }
+}
+
+
+int ConsistentContent::getNumFixedLines() const {
+  int numFixedLines = lines.size();
+  for (const FillerPtr& filler : topFillers) {
+    if (!filler->length.shares) {
+      numFixedLines += filler->length.value;
+    }
+  }
+  for (const FillerPtr& filler : bottomFillers) {
+    if (!filler->length.shares) {
+      numFixedLines += filler->length.value;
+    }
+  }
+}
+
+void verticalFillersToLinesChars(const std::vector<FillerPtr>& fillers, std::string* linesChars) {
+  linesChars->clear();
+  for (const FillerPtr& filler : fillers) {
+    if (filler->type == REPEATED_CHAR_LL) {
+      const RepeatedCharLL* rcLL = static_cast<const RepeatedCharLL*>(filler.get());
+      int oldSize = linesChars->length();
+      linesChars->resize(linesChars->length() + rcLL->length.value);
+      memset(&(*linesChars)[oldSize], rcLL->c, rcLL->length.value);
+    } else {
+      const StringLiteral* sl = static_cast<const StringLiteral*>(filler.get());
+      *linesChars += sl->str;
+    }
+  }
+}
+
+void ConsistentContent::generateLinesChars(int totalLines){
+  LiteralLength wordsLL(lines.size(), false);
+  std::vector<LiteralLength*> lls;
+  for (const FillerPtr& filler : topFillers) {
+    lls.push_back(&filler->length);
+  }
+  lls.push_back(&wordsLL);
+  for (const FillerPtr& filler : bottomFillers) {
+    lls.push_back(&filler->length);
+  }
+  llSharesToLength(totalLines, lls, f_at);
+
+  verticalFillersToLinesChars(topFillers, &topFillersChars);
+  verticalFillersToLinesChars(bottomFillers, &bottomFillersChars);
 }

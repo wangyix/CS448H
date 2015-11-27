@@ -178,6 +178,8 @@ struct ConsistentContent {
   void print() const;
   void generateCCLine(int lineNum, CCLine* line);
   void generateCCLines();
+  int getNumFixedLines() const;
+  void generateLinesChars(int totalLines);
 
   const char* f_at;
   bool childrenConsistent;  // true if all children startCol and endCol are known (line-independent)
@@ -193,6 +195,9 @@ struct ConsistentContent {
   int interwordFixedLength;
   bool interwordHasShares;
   std::vector<CCLine> lines;
+
+  std::string topFillersChars;
+  std::string bottomFillersChars;
 };
 
 
