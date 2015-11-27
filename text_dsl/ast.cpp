@@ -285,20 +285,7 @@ void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstIn
   bool startNewCC;
   bool newCCChildrenConsistent;
   
-  bool ccsEmptyOrFillersChanged;
-  ConsistentContent* cc = NULL;
-  if (ccs->empty()) {
-    ccsEmptyOrFillersChanged = true;
-  } else {
-    cc = &ccs->back();
-    if (firstInParent) {
-      ccsEmptyOrFillersChanged = (cc->topFillers != *topFillersStack || cc->bottomFillers != *bottomFillersStack);
-    } else {
-      ccsEmptyOrFillersChanged = false;
-    }
-  }
-
-  if (ccsEmptyOrFillersChanged) {
+  if (ccs->empty() || firstInParent) {
     startNewCC = true;
     newCCChildrenConsistent = (endCol != UNKNOWN_COL);
   } else {
@@ -314,11 +301,15 @@ void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstIn
   // if we're starting a new CC, its start must be consistent
   assert(!startNewCC || startCol != UNKNOWN_COL);
 
+  ConsistentContent* cc = NULL;
   if (startNewCC) {
     ccs->push_back(ConsistentContent(newCCChildrenConsistent, startCol, UNKNOWN_COL));
     cc = &ccs->back();
     cc->topFillers = *topFillersStack;
     cc->bottomFillers = *bottomFillersStack;
+  } else {
+    assert(!ccs->empty());
+    cc = &ccs->back();
   }
   if (type == WORDS) {
     cc->wordsIndex = cc->children.size();

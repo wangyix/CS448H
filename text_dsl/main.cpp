@@ -10,7 +10,7 @@ char* s1 = "Candy had always prided herself upon having a vivid imagination. Whe
 
 
 int linefunc(int line) {
-  return line;
+  return line % 4;
 }
 int main() {
   /*dsl_printf("100[ 1s[ #s' ' {w ->'_' 1s' ''hey'} ] '|' 1s[ 1s' ' {w' '} 1s' ' ]v{2'_''sup'}^{'h'2'*'} '\\o' 40[ 1' ' {w} ] ]",
@@ -23,7 +23,7 @@ int main() {
 
   dsl_printf("100[ 1s[1s' '] 1s[1s' ']  ]^{'1'}v{'2'}");*/
 
-  dsl_printf("10[1s' ' {w ' ' 1s' '}]", s1);
+  dsl_printf("100[ 1s[1s' ' {w ' ' 1s' '}]  2s[ #'|' 2s' ' {w'__'} 1s' ' #'|' ]  ]", s1, &linefunc, s1, &linefunc);
 
   getchar();
   return 0;
