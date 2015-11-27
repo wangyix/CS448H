@@ -393,7 +393,6 @@ const char* wordsLineToContents(const Words& words, const char* s_at, int interw
   // Interword fillers only go between words on the same line.
   const char* firstWordEnd = parseUntilWhitespace(s_at);
   int firstWordLength = firstWordEnd - s_at;
-  assert(firstWordLength > 0);
   if (firstWordLength > lineMaxLength) {
     // First word is longer than max line length; push as much of the word as allowed, and pretend
     // the next word starts where we left off.
