@@ -209,9 +209,6 @@ ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
         if (**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#') {
           block->addChild(parseSpecifiedLengthContent(fptr, args));
         } else if (**fptr == '{') {
-          if (block->hasWords()) {
-            throw DSLException(*fptr, "Cannot have multiple greedy-content within a block.");
-          }
           block->addWords(parseWords(fptr, args));
         } else {
           throw DSLException(*fptr, "Expected ', digit, or # to begin specified-length content, "

@@ -73,13 +73,24 @@ void Block::print() const {
 }
 
 void Block::addChild(ASTPtr child) {
-  if (child->type == REPEATED_CHAR_FL) {
+  if (child->type == BLOCK) {
+    if (hasWords()) {
+      throw DSLException(child->f_at, "Parent block cannot contain both a child block and words.");
+    }
+  } else if (child->type == REPEATED_CHAR_FL) {
     hasFLChild = true;
   }
   children.push_back(std::move(child));
 }
 void Block::addWords(ASTPtr words) {
-  assert(!hasWords());
+  if (hasWords()) {
+    throw DSLException(words->f_at, "Cannot have multiple words blocks within a block.");
+  }
+  for (const ASTPtr& child : children) {
+    if (child->type = BLOCK) {
+      throw DSLException(child->f_at, "Parent block cannot contain both a child block and words.");
+    }
+  }
   wordsIndex = children.size();
   children.push_back(std::move(words));
 }
