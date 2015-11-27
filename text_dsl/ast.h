@@ -92,8 +92,8 @@ struct Filler : public AST {
 struct StringLiteral : public Filler {
   StringLiteral(const char* f_at, const std::string& str)
     : Filler(STRING_LITERAL, f_at, LiteralLength((int)str.length(), false)), str(str) {}
-  StringLiteral(const char* f_at, const char* str, int size)
-    : Filler(STRING_LITERAL, f_at, LiteralLength((int)size, false)), str(str, size) {}
+  StringLiteral(const char* f_at, const char* src, int size)
+    : Filler(STRING_LITERAL, f_at, LiteralLength(size, false)), str(src, size) {}
   void print() const override;
   void accept(Visitor* v) override;
   void printContent() const override { printf("%s", str.c_str()); }

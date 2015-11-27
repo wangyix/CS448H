@@ -369,10 +369,18 @@ void deepCopy(const std::vector<FillerPtr>& src, std::vector<FillerPtr>* dst) {
   }
 }
 
-int wordsToContents(const char** s_at,
-                    const std::vector<FillerPtr>& interwordFillers, int interwordMinLength,
-                    int lineMaxLength, std::vector<FillerPtr>* lineContents, const char* f_at) {
+FillerPtr wordtoContent(const char* src, int size, char silhouette, const char* f_at) {
+  if (silhouette != '\0') {
+    return FillerPtr(new RepeatedCharLL(f_at, LiteralLength(size, false), silhouette));
+  } else {
+    return FillerPtr(new StringLiteral(f_at, src, size));
+  }
+}
+
+int wordsToContents(const Words& words, const char** s_at, int interwordMinLength,
+                    int lineMaxLength, std::vector<FillerPtr>* wordsContents) {
   assert(interwordMinLength >= 0);
+  wordsContents->clear();
   int remainingLength = lineMaxLength;
 
   *s_at = parseWhitespaces(*s_at);
@@ -387,11 +395,11 @@ int wordsToContents(const char** s_at,
   if (firstWordLength > lineMaxLength) {
     // First word is longer than max line length; push as much of the word as allowed, and pretend
     // the next word starts where we left off.
-    lineContents->push_back(FillerPtr(new StringLiteral(f_at, *s_at, lineMaxLength)));
+    wordsContents->push_back(wordtoContent(*s_at, lineMaxLength, words.wordSilhouette, words.f_at));
     *s_at += lineMaxLength;
     remainingLength = 0;
   } else {
-    lineContents->push_back(FillerPtr(new StringLiteral(f_at, *s_at, firstWordLength)));
+    wordsContents->push_back(wordtoContent(*s_at, firstWordLength, words.wordSilhouette, words.f_at));
     *s_at = firstWordEnd;
     remainingLength -= firstWordLength;
     
@@ -407,9 +415,9 @@ int wordsToContents(const char** s_at,
       assert(wordLength > 0);
       if (interwordMinLength + wordLength <= remainingLength) {
         std::vector<FillerPtr> interwordsCopy;
-        deepCopy(interwordFillers, &interwordsCopy);
-        lineContents->insert(lineContents->end(), interwordsCopy.begin(), interwordsCopy.end());
-        lineContents->push_back(FillerPtr(new StringLiteral(f_at, *s_at, wordLength)));
+        deepCopy(words.interwordFillers, &interwordsCopy);
+        wordsContents->insert(wordsContents->end(), interwordsCopy.begin(), interwordsCopy.end());
+        wordsContents->push_back(wordtoContent(*s_at, wordLength, words.wordSilhouette, words.f_at));
         *s_at = wordEnd;
         remainingLength -= (interwordMinLength + wordLength);
       } else {
@@ -470,7 +478,7 @@ void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
     // Convert source text into contents (StringLiterals for words, Fillers for interwords).
     // Convert as much of the source as can fit in this line.
     std::vector<FillerPtr> wordsContents;
-    wordsToContents(&s_at, words->interwordFillers, interwordFixedLength, maxWordsLength, &wordsContents, words->f_at);
+    wordsToContents(*words, &s_at, interwordFixedLength, maxWordsLength, &wordsContents);
     // If the resulting wordsContents has any shares, then distribute any unused words length to them.
     // If the interword fillers have shares and more than 1 word from the source was put in wordsContent,
     // the wordsContents has shares.
