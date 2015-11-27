@@ -209,10 +209,10 @@ ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
         if (**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#') {
           block->addChild(parseSpecifiedLengthContent(fptr, args));
         } else if (**fptr == '{') {
-          if (block->hasGreedyChild()) {
+          if (block->hasWords()) {
             throw DSLException(*fptr, "Cannot have multiple greedy-content within a block.");
           }
-          block->addGreedyChild(parseWords(fptr, args));
+          block->addWords(parseWords(fptr, args));
         } else {
           throw DSLException(*fptr, "Expected ', digit, or # to begin specified-length content, "
             "or { to begin greedy-length content.");
@@ -271,7 +271,7 @@ void dsl_printf(const char* format, ...) {
     std::vector<ConsistentContent> ccs;
     bool prevBlockConsistent = true;
     std::vector<FillerPtr> topFillersStack, bottomFillersStack;
-    root->flatten(root, &ccs, true, false, &topFillersStack, &bottomFillersStack);
+    root->flatten(root, &ccs, true, &topFillersStack, &bottomFillersStack);
 
     root->print();
     printf("\n\n");

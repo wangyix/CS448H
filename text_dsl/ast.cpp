@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <algorithm>
+#include <cctype>
 
 void LiteralLength::print() const {
   printf("%d", value);
@@ -77,12 +78,12 @@ void Block::addChild(ASTPtr child) {
   }
   children.push_back(std::move(child));
 }
-void Block::addGreedyChild(ASTPtr words) {
-  assert(!hasGreedyChild());
+void Block::addWords(ASTPtr words) {
+  assert(!hasWords());
   wordsIndex = children.size();
   children.push_back(std::move(words));
 }
-bool Block::hasGreedyChild() const {
+bool Block::hasWords() const {
   return wordsIndex >= 0;
 }
 
@@ -264,7 +265,7 @@ void Block::convertLLSharesToLength() {
   if (length.shares) {
     throw DSLException(f_at, "Block length is line-dependent.");
   }
-  if (!hasGreedyChild() && !hasFLChild) {
+  if (!hasWords() && !hasFLChild) {
     // None of the content varies line-by-line, so all children have consistent length and positions
     // Note this means that all children have literal length.
     std::vector<LiteralLength*> lls;
@@ -337,7 +338,7 @@ void Block::computeStartEndCols(int start, int end) {
 }
 
 
-void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent, bool isWords,
+void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent,
                   std::vector<FillerPtr>* topFillersStack,
                   std::vector<FillerPtr>* bottomFillersStack) {
   bool startNewCC;
@@ -378,28 +379,16 @@ void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstIn
     cc->topFillers = *topFillersStack;
     cc->bottomFillers = *bottomFillersStack;
   }
-  if (isWords) {
+  if (type == WORDS) {
     cc->wordsIndex = cc->children.size();
+    cc->words = static_cast<const Words*>(this);
+    //cc->s_at = cc->words->source.c_str();
   }
   cc->children.push_back(self);
   cc->endCol = endCol;
-
-  /*ConsistentContent* cc = NULL;
-  if (startCol != UNKNOWN_COL) {
-    ccs->push_back(ConsistentContent(startCol, UNKNOWN_COL));
-    cc = &ccs->back();
-    cc->topFillers = *topFillersStack;
-    cc->bottomFillers = *bottomFillersStack;
-  } else {
-    cc = &ccs->back();
-  }
-  cc->children.push_back(self);
-  if (endCol != UNKNOWN_COL) {
-    cc->endCol = endCol;
-  }*/
 }
 
-void Block::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent, bool isWords,
+void Block::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent,
                     std::vector<FillerPtr>* topFillersStack,
                     std::vector<FillerPtr>* bottomFillersStack) {
   topFillersStack->insert(topFillersStack->end(), topFillers.begin(), topFillers.end());
@@ -407,9 +396,151 @@ void Block::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool first
   firstInParent = true;
   for (int i = 0; i < children.size(); ++i) {
     ASTPtr& child = children[i];
-    child->flatten(child, ccs, firstInParent, i == wordsIndex, topFillersStack, bottomFillersStack);
+    child->flatten(child, ccs, firstInParent, topFillersStack, bottomFillersStack);
     firstInParent = false;
   }
   topFillersStack->erase(topFillersStack->end() - topFillers.size(), topFillersStack->end());
   bottomFillersStack->erase(bottomFillersStack->end() - bottomFillers.size(), bottomFillersStack->end());
+}
+ 
+
+FillerPtr RepeatedCharFL::toRepeatedCharLL(int line) const{
+  assert(line >= 0);
+  return FillerPtr(new RepeatedCharLL(f_at, length.toLiteralLength(line), c));
+}
+
+const char* parseWhitespaces(const char* s_at) {
+  while (std::isspace(*s_at)) {
+    ++s_at;
+  }
+  return s_at;
+}
+const char* parseUntilWhitespace(const char* s_at) {
+  while (*s_at != '\0' && !std::isspace(*s_at)) {
+    ++s_at;
+  }
+  return s_at;
+}
+
+int wordsToContents(const char** s_at,
+                    const std::vector<FillerPtr>& interwordFillers, int interwordMinLength,
+                    int lineMaxLength, std::vector<FillerPtr>* lineContents, const char* f_at) {
+  assert(interwordMinLength >= 0);
+  int remainingLength = lineMaxLength;
+
+  *s_at = parseWhitespaces(*s_at);
+  if (**s_at == '\0') {
+    return remainingLength;
+  }
+  // Add as many words and interword fillers as the maxWordsLength allows
+  // Interword fillers only go between words on the same line.
+  const char* firstWordEnd = parseUntilWhitespace(*s_at);
+  int firstWordLength = firstWordEnd - *s_at;
+  assert(firstWordLength > 0);
+  if (firstWordLength > lineMaxLength) {
+    // First word is longer than max line length; push as much of the word as allowed, and pretend
+    // the next word starts where we left off.
+    lineContents->push_back(FillerPtr(new StringLiteral(f_at, *s_at, lineMaxLength)));
+    *s_at += lineMaxLength;
+    remainingLength = 0;
+  } else {
+    lineContents->push_back(FillerPtr(new StringLiteral(f_at, *s_at, firstWordLength)));
+    *s_at = firstWordEnd;
+    remainingLength -= firstWordLength;
+    
+    while (true) {
+      *s_at = parseWhitespaces(*s_at);
+      if (**s_at == '\0') {
+        break;
+      }
+      // Check if there's enough room for interword fillers and another word.  If yes, insert 
+      // interword fillers and the next word.  Otherwise, bail
+      const char* wordEnd = parseUntilWhitespace(*s_at);
+      int wordLength = wordEnd - *s_at;
+      assert(wordLength > 0);
+      if (interwordMinLength + wordLength <= remainingLength) {
+        lineContents->insert(lineContents->end(), interwordFillers.begin(), interwordFillers.end());
+        lineContents->push_back(FillerPtr(new StringLiteral(f_at, *s_at, wordLength)));
+        *s_at = wordEnd;
+        remainingLength -= (interwordMinLength + wordLength);
+      } else {
+        break;
+      }
+    }
+  }
+
+  return remainingLength;
+}
+
+void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
+  int totalLength = endCol - startCol;
+  std::vector<FillerPtr>* lineContents = &line->contents;
+  lineContents->clear();
+
+  // add the non-word contents of this CC, with any function lengths evaluated to literal length
+  for (const ASTPtr& child : children) {
+    switch (child->type) {
+    case STRING_LITERAL:
+      lineContents->push_back(std::static_pointer_cast<Filler>(child));
+      break;
+    case REPEATED_CHAR_LL: {
+      const RepeatedCharLL* rcLL = static_cast<const RepeatedCharLL*>(child.get());
+      lineContents->push_back(FillerPtr(new RepeatedCharLL(*rcLL)));
+    } break;
+    case REPEATED_CHAR_FL: {
+      const RepeatedCharFL* rcFL = static_cast<const RepeatedCharFL*>(child.get());
+      lineContents->push_back(rcFL->toRepeatedCharLL(lineNum));
+    } break;
+    case WORDS:
+      break;
+    default:
+      assert(false);
+    }
+  }
+  // If this CC has no line-varying content, we've done all we needed to do
+  if (childrenConsistent) {
+    return;
+  }
+  // If this CC has words, insert additional content into lineContents at the wordsIndex that represent
+  // the words.
+  if (words != NULL) {
+    interwordFixedLength = 0;
+    for (const FillerPtr& filler : words->interwordFillers) {
+      if (!filler->length.shares) {
+        interwordFixedLength += filler->length.value;
+      }
+    }
+    int maxWordsLength = totalLength;
+    for (const FillerPtr& filler : *lineContents) {
+      if (!filler->length.shares) {
+        maxWordsLength -= filler->length.value;
+      }
+    }
+    if (maxWordsLength <= 0) {
+      throw DSLException(words->f_at, "No length remaining for words.");
+    }
+    std::vector<FillerPtr> wordsContents;
+    wordsToContents(&s_at, words->interwordFillers, interwordFixedLength, maxWordsLength, &wordsContents, words->f_at);
+    lineContents->insert(lineContents->begin() + wordsIndex, wordsContents.begin(), wordsContents.end());
+  }
+  // Compute the share lengths of the line contents
+  std::vector<LiteralLength*> lls;
+  for (const FillerPtr& filler : *lineContents) {
+    lls.push_back(&filler->length);
+  }
+  llSharesToLength(totalLength, lls, children.front()->f_at);
+}
+
+void ConsistentContent::generateCCLines() {
+  lines.clear();
+  if (words != NULL) {
+    s_at = words->source.c_str();
+    while (*s_at != '\0') {
+      lines.push_back(CCLine());
+      generateCCLine(lines.size() - 1, &lines.back());
+    }
+  } else {
+    lines.push_back(CCLine());
+    generateCCLine(UNKNOWN_COL, &lines.back());
+  }
 }

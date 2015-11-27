@@ -20,35 +20,31 @@ public:
 // -------------------------------------------------------------------------------------------------
 
 struct Length {
-  Length() {}
+  Length(bool shares) : shares(shares) {}
   virtual void print() const = 0;
-};
-
-struct SpecifiedLength : public Length {
-  SpecifiedLength(bool shares) : shares(shares) {}
-  virtual void print() const override = 0;
 
   bool shares;
 };
 
-struct LiteralLength : public SpecifiedLength {
+struct LiteralLength : public Length {
   LiteralLength(int value, bool shares)
-    : SpecifiedLength(shares), value(value) {}
+    : Length(shares), value(value) {}
   void print() const override;
 
   int value;
 };
 
-struct FunctionLength : public SpecifiedLength {
+struct FunctionLength : public Length {
   FunctionLength(LengthFunc lengthFunc, bool shares)
-    : SpecifiedLength(shares), lengthFunc(lengthFunc) {}
+    : Length(shares), lengthFunc(lengthFunc) {}
   void print() const override;
+  LiteralLength toLiteralLength(int line) const { return LiteralLength((*lengthFunc)(line), shares); }
 
   LengthFunc lengthFunc;
 };
 
 // -------------------------------------------------------------------------------------------------
-enum NodeType :int{ STRING_LITERAL, REPEATED_CHAR, REPEATED_CHAR_FL, WORDS, BLOCK };
+enum NodeType :int{ STRING_LITERAL, REPEATED_CHAR_LL, REPEATED_CHAR_FL, WORDS, BLOCK };
 
 class Visitor;
 struct ConsistentContent;
@@ -68,7 +64,7 @@ struct AST {
 
   virtual void convertLLSharesToLength();
   virtual void computeStartEndCols(int start, int end);
-  virtual void flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent, bool isWords,
+  virtual void flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent,
     std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack);
   
   NodeType type;
@@ -95,6 +91,8 @@ struct Filler : public AST {
 struct StringLiteral : public Filler {
   StringLiteral(const char* f_at, const std::string& str)
     : Filler(STRING_LITERAL, f_at, LiteralLength((int)str.length(), false)), str(str) {}
+  StringLiteral(const char* f_at, const char* str, int size)
+    : Filler(STRING_LITERAL, f_at, LiteralLength((int)size, false)), str(str, size) {}
   void print() const override;
   void accept(Visitor* v) override;
 
@@ -103,7 +101,7 @@ struct StringLiteral : public Filler {
 
 struct RepeatedCharLL : public Filler {
   RepeatedCharLL(const char* f_at, const LiteralLength& length, char c)
-    : Filler(REPEATED_CHAR, f_at, length), c(c) {}
+    : Filler(REPEATED_CHAR_LL, f_at, length), c(c) {}
   void print() const override;
   void accept(Visitor* v) override;
 
@@ -119,6 +117,8 @@ struct RepeatedCharFL : public AST {
   void accept(Visitor* v) override;
   int getFixedLength() const override { return UNKNOWN_COL; }
   LiteralLength* getLiteralLength() override { return NULL; }
+
+  FillerPtr toRepeatedCharLL(int line) const;
 
   FunctionLength length;
   char c;
@@ -146,12 +146,12 @@ struct Block : public AST {
   LiteralLength* getLiteralLength() override { return &length; }
 
   void addChild(ASTPtr child);
-  void addGreedyChild(ASTPtr words);
-  bool hasGreedyChild() const;
+  void addWords(ASTPtr words);
+  bool hasWords() const;
 
   void convertLLSharesToLength() override;
   void computeStartEndCols(int start, int end) override;
-  void flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent, bool isWords,
+  void flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent,
     std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) override;
 
   LiteralLength length;
@@ -163,24 +163,36 @@ struct Block : public AST {
 };
 
 // -------------------------------------------------------------------------------------------------
+struct CCLine;
 
 // If one child, then child must be consistent.
 // If multiple children, then first and last children must be inconsistent
 struct ConsistentContent {
   ConsistentContent(bool childrenConsistent, int startCol, int endCol)
-    : childrenConsistent(childrenConsistent), wordsIndex(UNKNOWN_COL), startCol(startCol), endCol(endCol) {}
+    : childrenConsistent(childrenConsistent), wordsIndex(UNKNOWN_COL), words(NULL),
+    startCol(startCol), endCol(endCol), s_at(NULL), interwordFixedLength(UNKNOWN_COL) {}
   void print() const;
+  void generateCCLine(int lineNum, CCLine* line);
+  void generateCCLines();
 
   bool childrenConsistent;  // true if all children startCol and endCol are known (line-independent)
   std::vector<ASTPtr> children;
   int wordsIndex;
+  const Words* words;
   int startCol;
   int endCol;
   std::vector<FillerPtr> topFillers;
   std::vector<FillerPtr> bottomFillers;
+
+  const char* s_at;
+  int interwordFixedLength;
+  std::vector<CCLine> lines;
 };
 
 
+struct CCLine {
+  std::vector<FillerPtr> contents;
+};
 
 
 #endif
