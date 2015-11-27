@@ -276,7 +276,6 @@ void dsl_printf(const char* format, ...) {
     root->print();
     printf("\n\n");
 
-    int numLines = 0;
     for (ConsistentContent& cc : ccs) {
       printf("\n\n");
       cc.print();
@@ -286,15 +285,8 @@ void dsl_printf(const char* format, ...) {
         line.printContent();
         printf("\n");
       }*/
-      int minLines = cc.getNumFixedLines();
-      if (minLines > numLines) {
-        numLines = minLines;
-      }
     }
-    for (ConsistentContent& cc : ccs) {
-      cc.generateLinesChars(numLines);
-    }
-    
+
 
   } catch (DSLException& e) {
     printf("%s\n", format);
