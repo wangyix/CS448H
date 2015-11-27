@@ -87,7 +87,7 @@ void Block::addWords(ASTPtr words) {
     throw DSLException(words->f_at, "Cannot have multiple words blocks within a block.");
   }
   for (const ASTPtr& child : children) {
-    if (child->type = BLOCK) {
+    if (child->type == BLOCK) {
       throw DSLException(child->f_at, "Parent block cannot contain both a child block and words.");
     }
   }
