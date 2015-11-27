@@ -341,8 +341,8 @@ FillerPtr RepeatedCharFL::toRepeatedCharLL(int line) const{
   return FillerPtr(new RepeatedCharLL(f_at, length.toLiteralLength(line), c));
 }
 
-const char* parseWhitespaces(const char* s_at) {
-  while (std::isspace(*s_at)) {
+const char* parseWhitespacesExceptNewline(const char* s_at) {
+  while (std::isspace(*s_at) && *s_at != '\n') {
     ++s_at;
   }
   return s_at;
@@ -377,48 +377,51 @@ FillerPtr wordtoContent(const char* src, int size, char silhouette, const char* 
   }
 }
 
-int wordsToContents(const Words& words, const char** s_at, int interwordMinLength,
-                    int lineMaxLength, std::vector<FillerPtr>* wordsContents) {
+const char* wordsLineToContents(const Words& words, const char* s_at, int interwordMinLength,
+                                int lineMaxLength, std::vector<FillerPtr>* wordsContents) {
   assert(interwordMinLength >= 0);
   wordsContents->clear();
   int remainingLength = lineMaxLength;
 
-  *s_at = parseWhitespaces(*s_at);
-  if (**s_at == '\0') {
-    return remainingLength;
+  s_at = parseWhitespacesExceptNewline(s_at);
+  if (*s_at == '\0') {
+    return s_at;
   }
   // Add as many words and interword fillers as the maxWordsLength allows
   // Interword fillers only go between words on the same line.
-  const char* firstWordEnd = parseUntilWhitespace(*s_at);
-  int firstWordLength = firstWordEnd - *s_at;
+  const char* firstWordEnd = parseUntilWhitespace(s_at);
+  int firstWordLength = firstWordEnd - s_at;
   assert(firstWordLength > 0);
   if (firstWordLength > lineMaxLength) {
     // First word is longer than max line length; push as much of the word as allowed, and pretend
     // the next word starts where we left off.
-    wordsContents->push_back(wordtoContent(*s_at, lineMaxLength, words.wordSilhouette, words.f_at));
-    *s_at += lineMaxLength;
+    wordsContents->push_back(wordtoContent(s_at, lineMaxLength, words.wordSilhouette, words.f_at));
+    s_at += lineMaxLength;
     remainingLength = 0;
   } else {
-    wordsContents->push_back(wordtoContent(*s_at, firstWordLength, words.wordSilhouette, words.f_at));
-    *s_at = firstWordEnd;
+    wordsContents->push_back(wordtoContent(s_at, firstWordLength, words.wordSilhouette, words.f_at));
+    s_at = firstWordEnd;
     remainingLength -= firstWordLength;
     
     while (true) {
-      *s_at = parseWhitespaces(*s_at);
-      if (**s_at == '\0') {
+      s_at = parseWhitespacesExceptNewline(s_at);
+      if (*s_at == '\0') {
+        break;
+      } else if (*s_at == '\n') {
+        ++s_at;
         break;
       }
       // Check if there's enough room for interword fillers and another word.  If yes, insert 
       // interword fillers and the next word.  Otherwise, bail
-      const char* wordEnd = parseUntilWhitespace(*s_at);
-      int wordLength = wordEnd - *s_at;
+      const char* wordEnd = parseUntilWhitespace(s_at);
+      int wordLength = wordEnd - s_at;
       assert(wordLength > 0);
       if (interwordMinLength + wordLength <= remainingLength) {
         std::vector<FillerPtr> interwordsCopy;
         deepCopy(words.interwordFillers, &interwordsCopy);
         wordsContents->insert(wordsContents->end(), interwordsCopy.begin(), interwordsCopy.end());
-        wordsContents->push_back(wordtoContent(*s_at, wordLength, words.wordSilhouette, words.f_at));
-        *s_at = wordEnd;
+        wordsContents->push_back(wordtoContent(s_at, wordLength, words.wordSilhouette, words.f_at));
+        s_at = wordEnd;
         remainingLength -= (interwordMinLength + wordLength);
       } else {
         break;
@@ -426,7 +429,7 @@ int wordsToContents(const Words& words, const char** s_at, int interwordMinLengt
     }
   }
 
-  return remainingLength;
+  return s_at;
 }
 
 void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
@@ -478,7 +481,7 @@ void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
     // Convert source text into contents (StringLiterals for words, Fillers for interwords).
     // Convert as much of the source as can fit in this line.
     std::vector<FillerPtr> wordsContents;
-    wordsToContents(*words, &s_at, interwordFixedLength, maxWordsLength, &wordsContents);
+    s_at = wordsLineToContents(*words, s_at, interwordFixedLength, maxWordsLength, &wordsContents);
     // If the resulting wordsContents has any shares, then distribute any unused words length to them.
     // If the interword fillers have shares and more than 1 word from the source was put in wordsContent,
     // the wordsContents has shares.
