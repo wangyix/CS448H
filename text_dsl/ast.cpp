@@ -292,7 +292,7 @@ void Block::computeStartEndCols(int start, int end) {
 }
 
 
-void AST::flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent>* ccs, bool firstInParent,
+void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
                   std::vector<FillerPtr>* topFillersStack,
                   std::vector<FillerPtr>* bottomFillersStack) {
   bool startNewCC;
@@ -316,7 +316,7 @@ void AST::flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent>*
 
   ConsistentContent* cc = NULL;
   if (startNewCC) {
-    ccs->push_back(ConsistentContent(f_at, newCCChildrenConsistent, startCol, UNKNOWN_COL));
+    ccs->push_back(ConsistentContent(parent, newCCChildrenConsistent, startCol, UNKNOWN_COL));
     cc = &ccs->back();
     cc->topFillers = *topFillersStack;
     cc->bottomFillers = *bottomFillersStack;
@@ -333,7 +333,7 @@ void AST::flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent>*
   cc->endCol = endCol;
 }
 
-void Block::flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent>* ccs, bool firstInParent,
+void Block::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
                     std::vector<FillerPtr>* topFillersStack,
                     std::vector<FillerPtr>* bottomFillersStack) {
   topFillersStack->insert(topFillersStack->end(), topFillers.begin(), topFillers.end());
@@ -341,7 +341,7 @@ void Block::flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent
   firstInParent = true;
   for (int i = 0; i < children.size(); ++i) {
     ASTPtr& child = children[i];
-    child->flatten(child, this->f_at, ccs, firstInParent, topFillersStack, bottomFillersStack);
+    child->flatten(child, self, ccs, firstInParent, topFillersStack, bottomFillersStack);
     firstInParent = false;
   }
   topFillersStack->erase(topFillersStack->end() - topFillers.size(), topFillersStack->end());
@@ -515,7 +515,7 @@ void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
   for (const FillerPtr& filler : *lineContents) {
     lls.push_back(&filler->length);
   }
-  llSharesToLength(totalLength, lls, f_at);
+  llSharesToLength(totalLength, lls, parent->f_at);
 }
 
 void ConsistentContent::generateCCLines() {

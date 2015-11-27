@@ -64,7 +64,7 @@ struct AST {
 
   virtual void convertLLSharesToLength();
   virtual void computeStartEndCols(int start, int end);
-  virtual void flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent>* ccs, bool firstInParent,
+  virtual void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
     std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack);
   
   NodeType type;
@@ -154,7 +154,7 @@ struct Block : public AST {
 
   void convertLLSharesToLength() override;
   void computeStartEndCols(int start, int end) override;
-  void flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent>* ccs, bool firstInParent,
+  void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
     std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) override;
 
   LiteralLength length;
@@ -165,21 +165,24 @@ struct Block : public AST {
   std::vector<FillerPtr> bottomFillers;
 };
 
+typedef std::shared_ptr<Block> BlockPtr;
+
 // -------------------------------------------------------------------------------------------------
 struct CCLine;
 
 // If one child, then child must be consistent.
 // If multiple children, then first and last children must be inconsistent
 struct ConsistentContent {
-  ConsistentContent(const char* f_at, bool childrenConsistent, int startCol, int endCol)
-    : f_at(f_at), childrenConsistent(childrenConsistent), wordsIndex(UNKNOWN_COL), words(NULL),
+  ConsistentContent(ASTPtr parent, bool childrenConsistent, int startCol, int endCol)
+    : parent(std::static_pointer_cast<Block>(parent)), childrenConsistent(childrenConsistent),
+    wordsIndex(UNKNOWN_COL), words(NULL),
     startCol(startCol), endCol(endCol), s_at(NULL), interwordFixedLength(UNKNOWN_COL),
     interwordHasShares(false) {}
   void print() const;
   void generateCCLine(int lineNum, CCLine* line);
   void generateCCLines();
 
-  const char* f_at;
+  BlockPtr parent;
   bool childrenConsistent;  // true if all children startCol and endCol are known (line-independent)
   std::vector<ASTPtr> children;
   int wordsIndex;

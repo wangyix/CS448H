@@ -268,7 +268,7 @@ void dsl_printf(const char* format, ...) {
     std::vector<ConsistentContent> ccs;
     bool prevBlockConsistent = true;
     std::vector<FillerPtr> topFillersStack, bottomFillersStack;
-    root->flatten(root, root->f_at, &ccs, true, &topFillersStack, &bottomFillersStack);
+    root->flatten(root, ASTPtr(), &ccs, true, &topFillersStack, &bottomFillersStack);
 
     root->print();
     printf("\n\n");
