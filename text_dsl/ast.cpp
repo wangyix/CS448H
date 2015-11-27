@@ -279,7 +279,7 @@ void Block::computeStartEndCols(int start, int end) {
 }
 
 
-void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent,
+void AST::flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent>* ccs, bool firstInParent,
                   std::vector<FillerPtr>* topFillersStack,
                   std::vector<FillerPtr>* bottomFillersStack) {
   bool startNewCC;
@@ -303,7 +303,7 @@ void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstIn
 
   ConsistentContent* cc = NULL;
   if (startNewCC) {
-    ccs->push_back(ConsistentContent(newCCChildrenConsistent, startCol, UNKNOWN_COL));
+    ccs->push_back(ConsistentContent(f_at, newCCChildrenConsistent, startCol, UNKNOWN_COL));
     cc = &ccs->back();
     cc->topFillers = *topFillersStack;
     cc->bottomFillers = *bottomFillersStack;
@@ -320,7 +320,7 @@ void AST::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstIn
   cc->endCol = endCol;
 }
 
-void Block::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool firstInParent,
+void Block::flatten(ASTPtr self, const char* f_at, std::vector<ConsistentContent>* ccs, bool firstInParent,
                     std::vector<FillerPtr>* topFillersStack,
                     std::vector<FillerPtr>* bottomFillersStack) {
   topFillersStack->insert(topFillersStack->end(), topFillers.begin(), topFillers.end());
@@ -328,7 +328,7 @@ void Block::flatten(ASTPtr self, std::vector<ConsistentContent>* ccs, bool first
   firstInParent = true;
   for (int i = 0; i < children.size(); ++i) {
     ASTPtr& child = children[i];
-    child->flatten(child, ccs, firstInParent, topFillersStack, bottomFillersStack);
+    child->flatten(child, this->f_at, ccs, firstInParent, topFillersStack, bottomFillersStack);
     firstInParent = false;
   }
   topFillersStack->erase(topFillersStack->end() - topFillers.size(), topFillersStack->end());
@@ -450,7 +450,7 @@ void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
     }
   }
   // If this CC has no line-varying content, we've done all we needed to do
-  if (childrenConsistent) {
+  if (childrenConsistent && words == NULL) {
     return;
   }
 
@@ -492,7 +492,7 @@ void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
   for (const FillerPtr& filler : *lineContents) {
     lls.push_back(&filler->length);
   }
-  llSharesToLength(totalLength, lls, children.front()->f_at);
+  llSharesToLength(totalLength, lls, f_at);
 }
 
 void ConsistentContent::generateCCLines() {
