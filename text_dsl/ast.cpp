@@ -535,4 +535,22 @@ printf("\n");
 lines.back().printContent();
 printf("\n");
   }
+  int numContentLines = lines.size();
+  if (parent && numContentLines > parent->numContentLines) {
+    parent->numContentLines = numContentLines;
+  }
 }
+
+void AST::computeNumContentLines() {
+  numContentLines = 1;
+}
+
+void Block::computeNumContentLines() {
+  for (const ASTPtr& child : children) {
+    child->computeNumContentLines();
+    if (child->numContentLines > numContentLines) {
+      numContentLines = child->numContentLines;
+    }
+  }
+}
+

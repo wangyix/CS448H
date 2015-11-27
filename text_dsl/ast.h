@@ -56,7 +56,8 @@ typedef std::shared_ptr<Filler> FillerPtr;
 
 struct AST {
   AST(NodeType type, const char* f_at)
-    : type(type), f_at(f_at), startCol(UNKNOWN_COL), endCol(UNKNOWN_COL) {}
+    : type(type), f_at(f_at), startCol(UNKNOWN_COL), endCol(UNKNOWN_COL),
+    numContentLines(UNKNOWN_COL) {}
   virtual void print() const = 0;
   virtual void accept(Visitor* v) = 0;
   virtual int getFixedLength() const = 0;
@@ -65,12 +66,16 @@ struct AST {
   virtual void convertLLSharesToLength();
   virtual void computeStartEndCols(int start, int end);
   virtual void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent);
+
+  virtual void computeNumContentLines();
   
   NodeType type;
   const char* f_at;   // position in the format string where this node is specified
 
   int startCol;     // starting column of this content
   int endCol;       // ending column of this content (1 past last)
+
+  int numContentLines;    // number of lines (not including vertical filler lines)
 };
 
 // -------------------------------------------------------------------------------------------------
@@ -154,6 +159,8 @@ struct Block : public AST {
   void convertLLSharesToLength() override;
   void computeStartEndCols(int start, int end) override;
   void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent) override;
+
+  void computeNumContentLines() override;
 
   LiteralLength length;
   std::vector<ASTPtr> children;

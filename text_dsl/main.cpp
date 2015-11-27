@@ -28,6 +28,8 @@ int main() {
 
   dsl_printf("60[ #'|' {w 1s' '' '} #'|' 1s' ']", &linefunc, s1, &linefunc);
 
+  dsl_printf("60'-'");
+
   getchar();
   return 0;
 }

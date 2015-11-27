@@ -247,6 +247,9 @@ ASTPtr parseFormat(const char** fptr, va_list* args) {
   if (**fptr != '\0') {
     throw DSLException(*fptr, "Unexpected character before end of format string.");
   }
+  /*if (root->type != BLOCK) {
+    throw DSLException(root->f_at, "Root content must be a block.");
+  }*/
   if (root->getFixedLength() == UNKNOWN_COL) {
     throw DSLException(root->f_at, "Root content must be fixed-length.");
   }
