@@ -281,10 +281,10 @@ void dsl_printf(const char* format, ...) {
       cc.print();
       printf("\n");
       cc.generateCCLines();
-      for (CCLine& line : cc.lines) {
+      /*for (CCLine& line : cc.lines) {
         line.printContent();
         printf("\n");
-      }
+      }*/
     }
 
 

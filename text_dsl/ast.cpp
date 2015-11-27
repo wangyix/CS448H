@@ -148,10 +148,12 @@ void llSharesToLength(int totalLength, const std::vector<LiteralLength*>& lls, c
     if (lengthRemaining > 0) {
       throw DSLException(f_at, "No share-length content to distribute remaining length to.");
     }
-    // Distributing 0 length amongst 0 total shares is fine: all resulting lengths are 0.
+    // Distributing 0 length amongst 0 total shares is fine: all resulting share lengths are 0.
     for (LiteralLength* ll : lls) {
-      ll->value = 0;
-      ll->shares = false;
+      if (ll->shares) {
+        ll->value = 0;
+        ll->shares = false;
+      }
     }
     return;
   }
@@ -523,9 +525,13 @@ void ConsistentContent::generateCCLines() {
     while (*s_at != '\0') {
       lines.push_back(CCLine());
       generateCCLine(lines.size() - 1, &lines.back());
+lines.back().printContent();
+printf("\n");
     }
   } else {
     lines.push_back(CCLine());
     generateCCLine(UNKNOWN_COL, &lines.back());
+lines.back().printContent();
+printf("\n");
   }
 }

@@ -26,7 +26,7 @@ int main() {
   dsl_printf("100[ 1s[1s' ' {w ' ' 1s' '}]  2s[ #'|' 2s' ' {w'__'} 1s' ' #'|' ]  ]", s1, &linefunc, s1, &linefunc);
   */
 
-  dsl_printf("60[{w 1s' '' '} 1s' ' ]", s1);
+  dsl_printf("60[ #'|' {w 1s' '' '} #'|']", &linefunc, s1, &linefunc);
 
   getchar();
   return 0;
