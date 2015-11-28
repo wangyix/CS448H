@@ -141,7 +141,7 @@ void Block::accept(Visitor* v) {
 
 // -------------------------------------------------------------------------------------------------
 
-void llSharesToLength(int totalLength, const std::vector<LiteralLength*>& lls, const char* f_at) {
+static void llSharesToLength(int totalLength, const std::vector<LiteralLength*>& lls, const char* f_at) {
   int lengthRemaining = totalLength;
   int totalShareCount = 0;
   std::vector<LiteralLength*> shareLLs;
@@ -360,20 +360,20 @@ static bool isSpace(char c) {
   return (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v');
 }
 
-const char* parseWhitespacesExceptNewline(const char* s_at) {
+static const char* parseWhitespacesExceptNewline(const char* s_at) {
   while (isSpace(*s_at) && *s_at != '\n') {
     ++s_at;
   }
   return s_at;
 }
-const char* parseUntilWhitespace(const char* s_at) {
+static const char* parseUntilWhitespace(const char* s_at) {
   while (*s_at != '\0' && !isSpace(*s_at)) {
     ++s_at;
   }
   return s_at;
 }
 
-void deepCopy(const std::vector<FillerPtr>& src, std::vector<FillerPtr>* dst) {
+static void deepCopyFillers(const std::vector<FillerPtr>& src, std::vector<FillerPtr>* dst) {
   dst->clear();
   for (const FillerPtr& filler : src) {
     if (filler->type == REPEATED_CHAR_LL) {
@@ -388,7 +388,7 @@ void deepCopy(const std::vector<FillerPtr>& src, std::vector<FillerPtr>* dst) {
   }
 }
 
-FillerPtr wordtoContent(const char* src, int size, char silhouette, const char* f_at) {
+static FillerPtr wordtoContent(const char* src, int size, char silhouette, const char* f_at) {
   if (silhouette != '\0') {
     return FillerPtr(new RepeatedCharLL(f_at, LiteralLength(size, false), silhouette));
   } else {
@@ -396,8 +396,8 @@ FillerPtr wordtoContent(const char* src, int size, char silhouette, const char* 
   }
 }
 
-const char* wordsLineToContents(const Words& words, const char* s_at, int interwordMinLength,
-                                int lineMaxLength, std::vector<FillerPtr>* wordsContents) {
+static const char* wordsLineToContents(const Words& words, const char* s_at, int interwordMinLength,
+                                       int lineMaxLength, std::vector<FillerPtr>* wordsContents) {
   assert(interwordMinLength >= 0);
   wordsContents->clear();
   int remainingLength = lineMaxLength;
@@ -436,7 +436,7 @@ const char* wordsLineToContents(const Words& words, const char* s_at, int interw
       assert(wordLength > 0);
       if (interwordMinLength + wordLength <= remainingLength) {
         std::vector<FillerPtr> interwordsCopy;
-        deepCopy(words.interwordFillers, &interwordsCopy);
+        deepCopyFillers(words.interwordFillers, &interwordsCopy);
         wordsContents->insert(wordsContents->end(), interwordsCopy.begin(), interwordsCopy.end());
         wordsContents->push_back(wordtoContent(s_at, wordLength, words.wordSilhouette, words.f_at));
         s_at = wordEnd;
@@ -628,7 +628,7 @@ void Block::computeBlockVerticalFillersShares() {
 }
 
 
-void verticalFillersToLinesChars(const std::vector<FillerPtr>& fillers, std::string* linesChars) {
+static void verticalFillersToLinesChars(const std::vector<FillerPtr>& fillers, std::string* linesChars) {
   linesChars->clear();
   for (const FillerPtr& filler : fillers) {
     assert(!filler->length.shares);
@@ -650,16 +650,16 @@ void ConsistentContent::generateLinesChars(int rootNumTotalLines) {
   assert(topFillersChars.length() + srcAst->numContentLines + bottomFillersChars.length() == rootNumTotalLines);
 }
 
-void putChars(char c, int n) {
+static void fPutChars(FILE* stream, char c, int n) {
   for (int i = 0; i < n; ++i) {
-    putchar(c);
+    fputc(c, stream);
   }
 }
 
 void ConsistentContent::printContentLine(FILE* stream, int lineNum, int rootNumTotalLines) {
   assert(0 <= lineNum && lineNum < rootNumTotalLines);
   if (lineNum < topFillersChars.length()) {
-    putChars(topFillersChars[lineNum], endCol - startCol);
+    fPutChars(stream, topFillersChars[lineNum], endCol - startCol);
   } else {
     lineNum -= topFillersChars.length();
     if (lineNum < srcAst->numContentLines) {
@@ -670,7 +670,7 @@ void ConsistentContent::printContentLine(FILE* stream, int lineNum, int rootNumT
       }
     } else {
       lineNum -= srcAst->numContentLines;
-      putChars(bottomFillersChars[lineNum], endCol - startCol);
+      fPutChars(stream, bottomFillersChars[lineNum], endCol - startCol);
     }
   }
 }

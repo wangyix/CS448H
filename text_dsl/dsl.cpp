@@ -12,13 +12,13 @@ static bool isSpace(char c) {
 }
 
 // Should be called after any token is parsed so that fptr is moved to the start of the next token
-void parseWhitespaces(const char** fptr) {
+static void parseWhitespaces(const char** fptr) {
   while (isSpace(**fptr)) {
     ++*fptr;
   }
 }
 
-int parseUint(const char** fptr) {
+static int parseUint(const char** fptr) {
   assert(std::isdigit(**fptr));
   int value = 0;
   do {
@@ -31,7 +31,7 @@ int parseUint(const char** fptr) {
 
 // Used for parsing the next char within a char or string literal (denoted by single-quotes)
 // Can escape (with backslash) an apostrophe or a backslash; all other characters parsed as-is.
-char parseCharInsideLiteral(const char** fptr) {
+static char parseCharInsideLiteral(const char** fptr) {
   assert(**fptr != '\'');
   char c = **fptr;
   if (c == '\0') {
@@ -49,7 +49,7 @@ char parseCharInsideLiteral(const char** fptr) {
   return c;
 }
 
-char parseCharLiteral(const char** fptr) {  // TOKEN
+static char parseCharLiteral(const char** fptr) {  // TOKEN
   assert(**fptr == '\'');
   ++*fptr;
   if (**fptr == '\'') {
@@ -64,7 +64,7 @@ char parseCharLiteral(const char** fptr) {  // TOKEN
   return c;
 }
 
-FillerPtr parseStringLiteral(const char** fptr) { // TOKEN
+static FillerPtr parseStringLiteral(const char** fptr) { // TOKEN
   assert(**fptr == '\'');
   const char* f_at = *fptr;
   ++*fptr;
@@ -78,7 +78,7 @@ FillerPtr parseStringLiteral(const char** fptr) { // TOKEN
   return FillerPtr(new StringLiteral(f_at, str));
 }
 
-LiteralLength parseLiteralLength(const char** fptr) {
+static LiteralLength parseLiteralLength(const char** fptr) {
   assert(std::isdigit(**fptr));
   LiteralLength ll(parseUint(fptr), false);
   if (**fptr == 's') {
@@ -89,7 +89,7 @@ LiteralLength parseLiteralLength(const char** fptr) {
   return ll;
 }
 
-FunctionLength parseFunctionLength(const char** fptr, va_list* args) {
+static FunctionLength parseFunctionLength(const char** fptr, va_list* args) {
   assert(**fptr == '#');
   FunctionLength fl(va_arg(*args, LengthFunc), false);
   ++*fptr;
@@ -102,7 +102,7 @@ FunctionLength parseFunctionLength(const char** fptr, va_list* args) {
 }
 
 // Parses 0 or more fillers
-void parseFillers(const char** fptr, std::vector<FillerPtr>* fillers) {
+static void parseFillers(const char** fptr, std::vector<FillerPtr>* fillers) {
   while (**fptr == '\'' || std::isdigit(**fptr)) {
     FillerPtr filler;
     if (**fptr == '\'') {
@@ -121,7 +121,7 @@ void parseFillers(const char** fptr, std::vector<FillerPtr>* fillers) {
   }
 }
 
-ASTPtr parseRepeatedCharFL(const char** fptr, va_list* args) {
+static ASTPtr parseRepeatedCharFL(const char** fptr, va_list* args) {
   assert(**fptr == '#');
   const char* f_at = *fptr;
   ASTPtr ast;
@@ -135,7 +135,7 @@ ASTPtr parseRepeatedCharFL(const char** fptr, va_list* args) {
   return ast;
 }
 
-char parseSilhouetteCharLiteral(const char** fptr) {
+static char parseSilhouetteCharLiteral(const char** fptr) {
   assert(**fptr == '-');
   ++*fptr;
   if (**fptr != '>') {
@@ -149,7 +149,7 @@ char parseSilhouetteCharLiteral(const char** fptr) {
   return parseCharLiteral(fptr);
 }
 
-ASTPtr parseWords(const char** fptr, va_list* args) {
+static ASTPtr parseWords(const char** fptr, va_list* args) {
   assert(**fptr == '{');
   Words* words = new Words(*fptr, va_arg(*args, char*));
   ASTPtr ast(words);
@@ -173,7 +173,7 @@ ASTPtr parseWords(const char** fptr, va_list* args) {
   return ast;
 }
 
-void parseTopOrBottomFiller(const char** fptr, std::vector<FillerPtr>* fillers, bool top) {
+static void parseTopOrBottomFiller(const char** fptr, std::vector<FillerPtr>* fillers, bool top) {
   char firstChar = top ? '^' : 'v';
   assert(**fptr == firstChar);
   ++*fptr;
@@ -192,7 +192,7 @@ void parseTopOrBottomFiller(const char** fptr, std::vector<FillerPtr>* fillers, 
 }
 
 
-ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
+static ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
   assert(**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#');
   ASTPtr slc;
   if (**fptr == '\'') {
@@ -239,7 +239,7 @@ ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
   return slc;
 }
 
-ASTPtr parseFormat(const char** fptr, va_list* args) {
+static ASTPtr parseFormat(const char** fptr, va_list* args) {
   parseWhitespaces(fptr);
   ASTPtr root;
   // top-level node must be some specified-length content other than repeated char with function length.
@@ -302,7 +302,7 @@ void dsl_fprintf(FILE* stream, const char* format, ...) {
       for (ConsistentContent& cc : ccs) {
         cc.printContentLine(stream, i, root->numTotalLines);
       }
-      printf("\n");
+      fprintf(stream, "\n");
     }
 
   } catch (DSLException& e) {

@@ -17,11 +17,13 @@ int linefunc(int line) {
   return line % 8;
 }
 int main() {
-  dsl_fprintf(stdout, "150[ 1s[1s'_']^{1s'@'}v{1s'@'}  '[''?'']'   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} '|' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{1s'v''-'} '|' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
+  FILE* file = fopen("out.txt", "w");
+
+  dsl_fprintf(file, "150[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
              &linefunc, s1, s2, s1);
   
 
-  dsl_fprintf(stdout, "100[ 4[1s' ']^{30'1'}v{30'1'}  1s[  4[1s' ']^{20'2'}v{20'2'}  1s[  4[1s' ']^{10'3'}v{10'3'}   1s[{w' '}1s' ']^{1s'a'}v{1s'z'}   ]^{1s'b'}v{1s'y'}  ]^{1s'c'}v{1s'x'}  ]", s2);
+  //dsl_fprintf(file, "100[ 4[1s' ']^{30'1'}v{30'1'}  1s[  4[1s' ']^{20'2'}v{20'2'}  1s[  4[1s' ']^{10'3'}v{10'3'}   1s[{w' '}1s' ']^{1s'a'}v{1s'z'}   ]^{1s'b'}v{1s'y'}  ]^{1s'c'}v{1s'x'}  ]", s2);
   
   /*
   dsl_printf("100[  10s[3[1s' ']  {w} 10[1s' ']] 4s' ' 'heym' ]", "source1");
@@ -40,6 +42,8 @@ int main() {
   //dsl_printf("60'-'");
 
   //dsl_printf("100[  1s[{w' '}1s' ']^{1s'*'}v{'=='} '|' 2s[{w' '}1s' ']^{2s'+' 'hi'}v{'--' 1s'o'} ]", s1, s2);
+
+  fclose(file);
 
   getchar();
   return 0;
