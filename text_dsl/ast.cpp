@@ -585,7 +585,9 @@ void Block::computeNumContentLines() {
 }
 
 void AST::computeNumTotalLines(bool isRoot) {
-  //numTotalLines = numFixedLines;
+  if (isRoot) {
+    numTotalLines = numFixedLines;
+  }
 }
 
 void Block::computeNumTotalLines(bool isRoot) {
