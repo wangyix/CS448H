@@ -65,7 +65,8 @@ struct AST {
 
   virtual void convertLLSharesToLength();
   virtual void computeStartEndCols(int start, int end);
-  virtual void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
+  virtual void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs,
+    bool firstAfterBlockBoundary,
     std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack);
 
   virtual void computeNumContentLines();
@@ -163,7 +164,8 @@ struct Block : public AST {
 
   void convertLLSharesToLength() override;
   void computeStartEndCols(int start, int end) override;
-  void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
+  void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs,
+    bool firstAfterBlockBoundary,
     std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) override;
 
   void computeNumContentLines() override;

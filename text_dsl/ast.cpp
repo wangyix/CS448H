@@ -293,12 +293,12 @@ void Block::computeStartEndCols(int start, int end) {
 }
 
 
-void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
+void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstAfterBlockBoundary,
                   std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) {
   bool startNewCC;
   bool newCCChildrenConsistent;
   
-  if (ccs->empty() || firstInParent) {
+  if (ccs->empty() || firstAfterBlockBoundary) {
     startNewCC = true;
     newCCChildrenConsistent = (endCol != UNKNOWN_COL);
   } else {
@@ -332,15 +332,19 @@ void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* cc
   cc->endCol = endCol;
 }
 
-void Block::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
+void Block::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstAfterBlockBoundary,
                     std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) {
   topFillersStack->insert(topFillersStack->end(), topFillers.begin(), topFillers.end());
   bottomFillersStack->insert(bottomFillersStack->begin(), bottomFillers.begin(), bottomFillers.end());
-  firstInParent = true;
+  bool firstAfterBlockBegin = true;
+  bool prevWasBlock = false;
   for (int i = 0; i < children.size(); ++i) {
     ASTPtr& child = children[i];
-    child->flatten(child, self, ccs, firstInParent, topFillersStack, bottomFillersStack);
-    firstInParent = false;
+    bool isBlock = (child->type == BLOCK);
+    bool firstAfterBlockEnd = (prevWasBlock && !isBlock);
+    child->flatten(child, self, ccs, firstAfterBlockBegin || firstAfterBlockEnd, topFillersStack, bottomFillersStack);
+    firstAfterBlockBegin = false;
+    prevWasBlock = isBlock;
   }
   topFillersStack->resize(topFillersStack->size() - topFillers.size());
   bottomFillersStack->erase(bottomFillersStack->begin(), bottomFillersStack->begin() + bottomFillers.size());
