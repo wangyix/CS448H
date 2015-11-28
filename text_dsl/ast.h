@@ -91,7 +91,7 @@ struct Filler : public AST {
     : AST(type, f_at), length(length) {}
   int getFixedLength() const override { return length.shares ? UNKNOWN_COL : length.value; }
   LiteralLength* getLiteralLength() override { return &length; }
-  virtual void printContent() const = 0;
+  virtual void printContent(FILE* stream) const = 0;
 
   LiteralLength length;
 };
@@ -106,7 +106,7 @@ struct StringLiteral : public Filler {
     : Filler(STRING_LITERAL, f_at, LiteralLength(size, false)), str(src, size) {}
   void print() const override;
   void accept(Visitor* v) override;
-  void printContent() const override { printf("%s", str.c_str()); }
+  void printContent(FILE* stream) const override { fprintf(stream, "%s", str.c_str()); }
 
   std::string str;
 };
@@ -116,7 +116,7 @@ struct RepeatedCharLL : public Filler {
     : Filler(REPEATED_CHAR_LL, f_at, length), c(c) {}
   void print() const override;
   void accept(Visitor* v) override;
-  void printContent() const override { for (int i = 0; i < length.value; ++i) putchar(c); }
+  void printContent(FILE* stream) const override { for (int i = 0; i < length.value; ++i) fputc(c, stream); }
 
   char c;
 };
@@ -201,7 +201,7 @@ struct ConsistentContent {
   void generateCCLines();
 
   void generateLinesChars(int rootNumTotalLines);
-  void printContentLine(int lineNum, int rootNumTotalLines);
+  void printContentLine(FILE* stream, int lineNum, int rootNumTotalLines);
 
   ASTPtr srcAst;
   bool childrenConsistent;  // true if all children startCol and endCol are known (line-independent)
@@ -222,7 +222,7 @@ struct ConsistentContent {
 
 
 struct CCLine {
-  void printContent() const { for (const FillerPtr& c : contents) c->printContent(); }
+  void printContent(FILE* stream) const { for (const FillerPtr& c : contents) c->printContent(stream); }
   std::vector<FillerPtr> contents;
 };
 

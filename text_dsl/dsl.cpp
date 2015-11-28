@@ -260,7 +260,7 @@ ASTPtr parseFormat(const char** fptr, va_list* args) {
   return root;
 }
 
-void dsl_printf(const char* format, ...) {
+void dsl_fprintf(FILE* stream, const char* format, ...) {
   va_list args;
   va_start(args, format);
   const char* f_at = format;
@@ -300,18 +300,18 @@ void dsl_printf(const char* format, ...) {
     printf("\n\n");
     for (int i = 0; i < root->numTotalLines; ++i) {
       for (ConsistentContent& cc : ccs) {
-        cc.printContentLine(i, root->numTotalLines);
+        cc.printContentLine(stream, i, root->numTotalLines);
       }
       printf("\n");
     }
 
   } catch (DSLException& e) {
-    printf("%s\n", format);
+    fprintf(stderr, "%s\n", format);
     for (int i = 0; i < e.f_at - format; ++i) {
-      putchar(' ');
+      fputc(' ', stderr);
     }
-    printf("^\n");
-    printf("Error at %d: %s\n", e.f_at - format, e.what());
+    fprintf(stderr, "^\n");
+    fprintf(stderr, "Error at %d: %s\n", e.f_at - format, e.what());
   }
   va_end(args);
 

@@ -656,7 +656,7 @@ void putChars(char c, int n) {
   }
 }
 
-void ConsistentContent::printContentLine(int lineNum, int rootNumTotalLines) {
+void ConsistentContent::printContentLine(FILE* stream, int lineNum, int rootNumTotalLines) {
   assert(0 <= lineNum && lineNum < rootNumTotalLines);
   if (lineNum < topFillersChars.length()) {
     putChars(topFillersChars[lineNum], endCol - startCol);
@@ -664,9 +664,9 @@ void ConsistentContent::printContentLine(int lineNum, int rootNumTotalLines) {
     lineNum -= topFillersChars.length();
     if (lineNum < srcAst->numContentLines) {
       if (words != NULL) {
-        lines[lineNum].printContent();
+        lines[lineNum].printContent(stream);
       } else {
-        lines[0].printContent();
+        lines[0].printContent(stream);
       }
     } else {
       lineNum -= srcAst->numContentLines;
