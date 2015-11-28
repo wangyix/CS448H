@@ -11,13 +11,17 @@ char* s1 = "Candy had always prided herself upon having a vivid imagination. Whe
 char* s2 = "The lufwood was burning very well. Purple flames blazed all round the stubby logs as they bumped and tumbled around inside the stove."
 "\nThe woodtrolls had many types of wood to choose from and each had its own special properties.Scentwood, for instance, burned with a fragrance that sent those who breathed it drifting into a dream - filled sleep, while wood from the silvery - turquoise lullabee tree sang as the flames lapped at its bark - strange mournful songs, they were, and not at all to everyone’s taste.And then there was the bloodoak, complete with its parasitic sidekick, a barbed creeper known as tarry vine.";
 
+char* s3 = "\n";
+
 int linefunc(int line) {
   return line % 8;
 }
 int main() {
-  dsl_printf("150[ 1s[1s'_']^{1s'@'}v{1s'@'}  '[''?'']'   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} '|' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{1s'v''-'} '|' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
-    /*s1,*/ &linefunc, s1, s2, s1);
+  /*dsl_printf("150[ 1s[1s'_']^{1s'@'}v{1s'@'}  '[''?'']'   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} '|' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{1s'v''-'} '|' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
+             &linefunc, s1, s2, s1);
+  */
 
+  dsl_printf("100[ 4[1s' ']^{30'1'}v{30'1'}  1s[  4[1s' ']^{20'2'}v{20'2'}  1s[  4[1s' ']^{10'3'}v{10'3'}   1s[{w' '}1s' ']^{1s'a'}v{1s'z'}   ]^{1s'b'}v{1s'y'}  ]^{1s'c'}v{1s'x'}  ]", s2);
   
   /*
   dsl_printf("100[  10s[3[1s' ']  {w} 10[1s' ']] 4s' ' 'heym' ]", "source1");
