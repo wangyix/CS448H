@@ -273,7 +273,8 @@ void dsl_printf(const char* format, ...) {
     root->computeStartEndCols(0, root->getFixedLength());
 
     std::vector<ConsistentContent> ccs;
-    root->flatten(root, root, &ccs, true);
+    std::vector<FillerPtr> topFillersStack, bottomFillersStack;
+    root->flatten(root, root, &ccs, true, &topFillersStack, &bottomFillersStack);
 
     root->print();
     printf("\n\n");
@@ -298,7 +299,7 @@ void dsl_printf(const char* format, ...) {
       printf("\n");
       cc.print();
       printf("\n");
-      printf("content: %d  fixed: %d  total: %d\n", cc.srcBlock->numContentLines, cc.srcBlock->numFixedLines, cc.srcBlock->numTotalLines);
+      printf("content: %d  fixed: %d  total: %d\n", cc.srcAst->numContentLines, cc.srcAst->numFixedLines, cc.srcAst->numTotalLines);
     }
 
   } catch (DSLException& e) {

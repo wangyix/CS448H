@@ -106,12 +106,12 @@ void ConsistentContent::print() const {
   }
   printf(" ]");
   printf("^{");
-  for (const FillerPtr& filler : srcBlock->topFillers) {
+  for (const FillerPtr& filler : topFillers) {
     printf(" ");
     filler->print();
   }
   printf(" }v{");
-  for (const FillerPtr& filler : srcBlock->bottomFillers) {
+  for (const FillerPtr& filler : bottomFillers) {
     printf(" ");
     filler->print();
   }
@@ -293,7 +293,8 @@ void Block::computeStartEndCols(int start, int end) {
 }
 
 
-void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent) {
+void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
+                  std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) {
   bool startNewCC;
   bool newCCChildrenConsistent;
   
@@ -315,7 +316,8 @@ void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* cc
 
   ConsistentContent* cc = NULL;
   if (startNewCC) {
-    ccs->push_back(ConsistentContent(parent, newCCChildrenConsistent, startCol, UNKNOWN_COL));
+    ccs->push_back(ConsistentContent(parent, newCCChildrenConsistent, startCol, UNKNOWN_COL,
+                                     *topFillersStack, *bottomFillersStack));
     cc = &ccs->back();
   } else {
     assert(!ccs->empty());
@@ -330,13 +332,18 @@ void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* cc
   cc->endCol = endCol;
 }
 
-void Block::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent) {
+void Block::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
+                    std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) {
+  topFillersStack->insert(topFillersStack->end(), topFillers.begin(), topFillers.end());
+  bottomFillersStack->insert(bottomFillersStack->end(), bottomFillers.begin(), bottomFillers.end());
   firstInParent = true;
   for (int i = 0; i < children.size(); ++i) {
     ASTPtr& child = children[i];
-    child->flatten(child, self, ccs, firstInParent);
+    child->flatten(child, self, ccs, firstInParent, topFillersStack, bottomFillersStack);
     firstInParent = false;
   }
+  topFillersStack->resize(topFillersStack->size() - topFillers.size());
+  bottomFillersStack->resize(bottomFillersStack->size() - bottomFillers.size());
 }
  
 
@@ -510,7 +517,7 @@ void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
   for (const FillerPtr& filler : *lineContents) {
     lls.push_back(&filler->length);
   }
-  llSharesToLength(totalLength, lls, srcBlock->f_at);
+  llSharesToLength(totalLength, lls, srcAst->f_at);
 }
 
 void ConsistentContent::generateCCLines() {
@@ -535,7 +542,7 @@ void ConsistentContent::generateCCLines() {
 lines.back().printContent();
 printf("\n");
      } while (*s_at != '\0');
-     srcBlock->numContentLines = lines.size();  // each block has at most one CC with Words
+     srcAst->numContentLines = lines.size();  // each block has at most one CC with Words
   } else {
     lines.push_back(CCLine());
     generateCCLine(UNKNOWN_COL, &lines.back());

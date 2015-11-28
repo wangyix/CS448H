@@ -65,7 +65,8 @@ struct AST {
 
   virtual void convertLLSharesToLength();
   virtual void computeStartEndCols(int start, int end);
-  virtual void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent);
+  virtual void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
+    std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack);
 
   virtual void computeNumContentLines();
   virtual void computeNumTotalLines(bool isRoot);
@@ -162,7 +163,8 @@ struct Block : public AST {
 
   void convertLLSharesToLength() override;
   void computeStartEndCols(int start, int end) override;
-  void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent) override;
+  void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
+    std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) override;
 
   void computeNumContentLines() override;
   void computeNumTotalLines(bool isRoot) override;
@@ -184,22 +186,25 @@ struct CCLine;
 // If one child, then child must be consistent.
 // If multiple children, then first and last children must be inconsistent
 struct ConsistentContent {
-  ConsistentContent(ASTPtr parent, bool childrenConsistent, int startCol, int endCol)
-    : srcBlock(std::static_pointer_cast<Block>(parent)), childrenConsistent(childrenConsistent),
+  ConsistentContent(ASTPtr srcAst, bool childrenConsistent, int startCol, int endCol,
+    const std::vector<FillerPtr> topFillers, const std::vector<FillerPtr> bottomFillers)
+    : srcAst(srcAst), childrenConsistent(childrenConsistent),
     wordsIndex(UNKNOWN_COL), words(NULL),
-    startCol(startCol), endCol(endCol), s_at(NULL), interwordFixedLength(UNKNOWN_COL),
+    startCol(startCol), endCol(endCol), topFillers(topFillers), bottomFillers(bottomFillers),
+    s_at(NULL), interwordFixedLength(UNKNOWN_COL),
     interwordHasShares(false) {}
   void print() const;
   void generateCCLine(int lineNum, CCLine* line);
   void generateCCLines();
 
-  BlockPtr srcBlock;
+  ASTPtr srcAst;
   bool childrenConsistent;  // true if all children startCol and endCol are known (line-independent)
   std::vector<ASTPtr> children;
   int wordsIndex;
   const Words* words;
   int startCol;
   int endCol;
+  std::vector<FillerPtr> topFillers, bottomFillers;
 
   const char* s_at;
   int interwordFixedLength;
