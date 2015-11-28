@@ -291,6 +291,7 @@ void dsl_printf(const char* format, ...) {
 
     root->computeNumContentLines();
     root->computeNumTotalLines(true);
+    root->computeBlockVerticalFillersShares();
 
     printf("\n");
     for (ConsistentContent& cc : ccs) {

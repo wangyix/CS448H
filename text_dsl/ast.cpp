@@ -594,3 +594,27 @@ void Block::computeNumTotalLines(bool isRoot) {
     child->computeNumTotalLines(false);
   }
 }
+
+void AST::computeBlockVerticalFillersShares() {
+}
+
+void Block::computeBlockVerticalFillersShares() {
+  assert(numContentLines != UNKNOWN_COL);
+  assert(numFixedLines != UNKNOWN_COL);
+  assert(numTotalLines != UNKNOWN_COL);
+  std::vector<LiteralLength*> lls;
+  for (const FillerPtr& filler : topFillers) {
+    lls.push_back(&filler->length);
+  }
+  LiteralLength contentLines(numContentLines, false);
+  lls.push_back(&contentLines);
+  for (const FillerPtr& filler : bottomFillers) {
+    lls.push_back(&filler->length);
+  }
+  llSharesToLength(numTotalLines, lls, f_at);
+
+  for (const ASTPtr& child : children) {
+    child->computeBlockVerticalFillersShares();
+  }
+}
+

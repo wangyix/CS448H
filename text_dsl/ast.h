@@ -69,6 +69,7 @@ struct AST {
 
   virtual void computeNumContentLines();
   virtual void computeNumTotalLines(bool isRoot);
+  virtual void computeBlockVerticalFillersShares();
   
   NodeType type;
   const char* f_at;   // position in the format string where this node is specified
@@ -165,6 +166,7 @@ struct Block : public AST {
 
   void computeNumContentLines() override;
   void computeNumTotalLines(bool isRoot) override;
+  void computeBlockVerticalFillersShares() override;
 
   LiteralLength length;
   std::vector<ASTPtr> children;
