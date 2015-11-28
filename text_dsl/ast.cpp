@@ -539,15 +539,11 @@ void ConsistentContent::generateCCLines() {
     do {
       lines.push_back(CCLine());
       generateCCLine(lines.size() - 1, &lines.back());
-lines.back().printContent();
-printf("\n");
      } while (*s_at != '\0');
      srcAst->numContentLines = lines.size();  // each block has at most one CC with Words
   } else {
     lines.push_back(CCLine());
     generateCCLine(UNKNOWN_COL, &lines.back());
-lines.back().printContent();
-printf("\n");
   }
 }
 
@@ -625,3 +621,50 @@ void Block::computeBlockVerticalFillersShares() {
   }
 }
 
+
+void verticalFillersToLinesChars(const std::vector<FillerPtr>& fillers, std::string* linesChars) {
+  linesChars->clear();
+  for (const FillerPtr& filler : fillers) {
+    assert(!filler->length.shares);
+    if (filler->type == REPEATED_CHAR_LL) {
+      const RepeatedCharLL* rcLL = static_cast<const RepeatedCharLL*>(filler.get());
+      int oldSize = linesChars->length();
+      linesChars->resize(linesChars->length() + rcLL->length.value);
+      memset(&(*linesChars)[oldSize], rcLL->c, rcLL->length.value);
+    } else {
+      const StringLiteral* sl = static_cast<const StringLiteral*>(filler.get());
+      *linesChars += sl->str;
+    }
+  }
+}
+
+void ConsistentContent::generateLinesChars() {
+  verticalFillersToLinesChars(topFillers, &topFillersChars);
+  verticalFillersToLinesChars(bottomFillers, &bottomFillersChars);
+  assert(topFillersChars.length() + srcAst->numContentLines + bottomFillersChars.length() == srcAst->numTotalLines);
+}
+
+void putChars(char c, int n) {
+  for (int i = 0; i < n; ++i) {
+    putchar(c);
+  }
+}
+
+void ConsistentContent::printContentLine(int lineNum) {
+  assert(0 <= lineNum && lineNum < srcAst->numTotalLines);
+  if (lineNum < topFillersChars.length()) {
+    putChars(topFillersChars[lineNum], endCol - startCol);
+  } else {
+    lineNum -= topFillersChars.length();
+    if (lineNum < srcAst->numContentLines) {
+      if (words != NULL) {
+        lines[lineNum].printContent();
+      } else {
+        lines[0].printContent();
+      }
+    } else {
+      lineNum -= srcAst->numContentLines;
+      putChars(bottomFillersChars[lineNum], endCol - startCol);
+    }
+  }
+}

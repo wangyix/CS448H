@@ -277,17 +277,10 @@ void dsl_printf(const char* format, ...) {
     root->flatten(root, root, &ccs, true, &topFillersStack, &bottomFillersStack);
 
     root->print();
-    printf("\n\n");
+    printf("\n");
 
     for (ConsistentContent& cc : ccs) {
-      //printf("\n\n");
-      //cc.print();
-      //printf("\n");
       cc.generateCCLines();
-      /*for (CCLine& line : cc.lines) {
-        line.printContent();
-        printf("\n");
-      }*/
     }
 
     root->computeNumContentLines();
@@ -300,6 +293,16 @@ void dsl_printf(const char* format, ...) {
       cc.print();
       printf("\n");
       printf("content: %d  fixed: %d  total: %d\n", cc.srcAst->numContentLines, cc.srcAst->numFixedLines, cc.srcAst->numTotalLines);
+      
+      cc.generateLinesChars();
+    }
+
+    printf("\n\n");
+    for (int i = 0; i < root->numTotalLines; ++i) {
+      for (ConsistentContent& cc : ccs) {
+        cc.printContentLine(i);
+      }
+      printf("\n");
     }
 
   } catch (DSLException& e) {

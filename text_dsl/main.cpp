@@ -12,14 +12,17 @@ char* s2 = "The lufwood was burning very well. Purple flames blazed all round th
 "\nThe woodtrolls had many types of wood to choose from and each had its own special properties.Scentwood, for instance, burned with a fragrance that sent those who breathed it drifting into a dream - filled sleep, while wood from the silvery - turquoise lullabee tree sang as the flames lapped at its bark - strange mournful songs, they were, and not at all to everyone’s taste.And then there was the bloodoak, complete with its parasitic sidekick, a barbed creeper known as tarry vine.";
 
 int linefunc(int line) {
-  return line % 4;
+  return line % 8;
 }
 int main() {
-  /*dsl_printf("100[ 1s[ #s'$' {w ->'_' 1s' ''hey'} ] '|' 1s[ 1s' ' {w' '} 1s' ' ]v{2'_''sup'}^{'h'2'*'} '\\o' 40[ 1' ' {w} ] ]",
-    &linefunc, s1, s1, s1);
+  dsl_printf("120[ 1s[ #' ' {w 1s' '} ]^{'-'1s'^'}v{1s'v''='} '|' 1s[ 1s' ' {w' '} 1s' ' ]^{'+'1s'^'}v{1s'v''-'} '|' 40[ 1s' ' {w' '} ]^{'WEW'1s'^'}v{1s'v''LAD'} ]",
+    &linefunc, s1, s2, s1);
 
+  
+  /*
   dsl_printf("100[  10s[3[1s' ']  {w} 10[1s' ']] 4s' ' 'heym' ]", "source1");
 
+  
   dsl_printf("100[  1s[5[1s' ']^{}  1s' '{w}3s' '  5[1s' ']v{}]^{}v{}  '|'  6s[ 1[2s' ']^{}v{} #s' ' 2s' ' ]^{}v{}  ]^{}v{}",
     "source1", &linefunc);
 
@@ -32,7 +35,7 @@ int main() {
 
   //dsl_printf("60'-'");
 
-  dsl_printf("100[  1s[{w' '}1s' ']^{1s'*'}v{'=='} '|' 2s[{w' '}1s' ']^{2s'+' 'hi'}v{'--' 1s'o'} ]", s1, s2);
+  //dsl_printf("100[  1s[{w' '}1s' ']^{1s'*'}v{'=='} '|' 2s[{w' '}1s' ']^{2s'+' 'hi'}v{'--' 1s'o'} ]", s1, s2);
 
   getchar();
   return 0;
