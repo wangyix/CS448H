@@ -57,7 +57,7 @@ typedef std::shared_ptr<Filler> FillerPtr;
 struct AST {
   AST(NodeType type, const char* f_at)
     : type(type), f_at(f_at), startCol(UNKNOWN_COL), endCol(UNKNOWN_COL),
-    numContentLines(UNKNOWN_COL) {}
+    numContentLines(UNKNOWN_COL), numFixedLines(UNKNOWN_COL), numTotalLines(UNKNOWN_COL) {}
   virtual void print() const = 0;
   virtual void accept(Visitor* v) = 0;
   virtual int getFixedLength() const = 0;
@@ -68,6 +68,7 @@ struct AST {
   virtual void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent);
 
   virtual void computeNumContentLines();
+  virtual void computeNumTotalLines(bool isRoot);
   
   NodeType type;
   const char* f_at;   // position in the format string where this node is specified
@@ -75,7 +76,9 @@ struct AST {
   int startCol;     // starting column of this content
   int endCol;       // ending column of this content (1 past last)
 
-  int numContentLines;    // number of lines (not including vertical filler lines)
+  int numContentLines;    // number of lines of non-vertical-filler content (word lines for blocks, 1 otherwise)
+  int numFixedLines;      // minimum number of lines of this content (word lines + fixed filler lines) for blocks, 1 otherwise
+  int numTotalLines;      // number of lines including filler lines
 };
 
 // -------------------------------------------------------------------------------------------------
@@ -161,6 +164,7 @@ struct Block : public AST {
   void flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent) override;
 
   void computeNumContentLines() override;
+  void computeNumTotalLines(bool isRoot) override;
 
   LiteralLength length;
   std::vector<ASTPtr> children;
@@ -179,7 +183,7 @@ struct CCLine;
 // If multiple children, then first and last children must be inconsistent
 struct ConsistentContent {
   ConsistentContent(ASTPtr parent, bool childrenConsistent, int startCol, int endCol)
-    : parent(std::static_pointer_cast<Block>(parent)), childrenConsistent(childrenConsistent),
+    : srcBlock(std::static_pointer_cast<Block>(parent)), childrenConsistent(childrenConsistent),
     wordsIndex(UNKNOWN_COL), words(NULL),
     startCol(startCol), endCol(endCol), s_at(NULL), interwordFixedLength(UNKNOWN_COL),
     interwordHasShares(false) {}
@@ -187,7 +191,7 @@ struct ConsistentContent {
   void generateCCLine(int lineNum, CCLine* line);
   void generateCCLines();
 
-  BlockPtr parent;
+  BlockPtr srcBlock;
   bool childrenConsistent;  // true if all children startCol and endCol are known (line-independent)
   std::vector<ASTPtr> children;
   int wordsIndex;

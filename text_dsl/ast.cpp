@@ -105,17 +105,17 @@ void ConsistentContent::print() const {
     child->print();
   }
   printf(" ]");
-  /*printf("^{");
-  for (const FillerPtr& filler : topFillers) {
+  printf("^{");
+  for (const FillerPtr& filler : srcBlock->topFillers) {
     printf(" ");
     filler->print();
   }
   printf(" }v{");
-  for (const FillerPtr& filler : bottomFillers) {
+  for (const FillerPtr& filler : srcBlock->bottomFillers) {
     printf(" ");
     filler->print();
   }
-  printf(" }");*/
+  printf(" }");
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -345,14 +345,18 @@ FillerPtr RepeatedCharFL::toRepeatedCharLL(int line) const{
   return FillerPtr(new RepeatedCharLL(f_at, length.toLiteralLength(line), c));
 }
 
+static bool isSpace(char c) {
+  return (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v');
+}
+
 const char* parseWhitespacesExceptNewline(const char* s_at) {
-  while (std::isspace(*s_at) && *s_at != '\n') {
+  while (isSpace(*s_at) && *s_at != '\n') {
     ++s_at;
   }
   return s_at;
 }
 const char* parseUntilWhitespace(const char* s_at) {
-  while (*s_at != '\0' && !std::isspace(*s_at)) {
+  while (*s_at != '\0' && !isSpace(*s_at)) {
     ++s_at;
   }
   return s_at;
@@ -388,9 +392,9 @@ const char* wordsLineToContents(const Words& words, const char* s_at, int interw
   int remainingLength = lineMaxLength;
 
   s_at = parseWhitespacesExceptNewline(s_at);
-  if (*s_at == '\0') {
+  /*if (*s_at == '\0') {
     return s_at;
-  }
+  }*/
   // Add as many words and interword fillers as the maxWordsLength allows
   // Interword fillers only go between words on the same line.
   const char* firstWordEnd = parseUntilWhitespace(s_at);
@@ -506,7 +510,7 @@ void ConsistentContent::generateCCLine(int lineNum, CCLine* line) {
   for (const FillerPtr& filler : *lineContents) {
     lls.push_back(&filler->length);
   }
-  llSharesToLength(totalLength, lls, parent->f_at);
+  llSharesToLength(totalLength, lls, srcBlock->f_at);
 }
 
 void ConsistentContent::generateCCLines() {
@@ -523,34 +527,70 @@ void ConsistentContent::generateCCLines() {
         interwordHasShares = true;
       }
     }
-    while (*s_at != '\0') {
+    // do-while instead of while; if source is empty str, then a blank line is still inserted.
+    // This ensures at least one CCLine is created.
+    do {
       lines.push_back(CCLine());
       generateCCLine(lines.size() - 1, &lines.back());
 lines.back().printContent();
 printf("\n");
-    }
+     } while (*s_at != '\0');
+     srcBlock->numContentLines = lines.size();  // each block has at most one CC with Words
   } else {
     lines.push_back(CCLine());
     generateCCLine(UNKNOWN_COL, &lines.back());
 lines.back().printContent();
 printf("\n");
   }
-  int numContentLines = lines.size();
-  if (parent && numContentLines > parent->numContentLines) {
-    parent->numContentLines = numContentLines;
-  }
 }
 
 void AST::computeNumContentLines() {
   numContentLines = 1;
+  numFixedLines = 1;
 }
 
 void Block::computeNumContentLines() {
   for (const ASTPtr& child : children) {
     child->computeNumContentLines();
-    if (child->numContentLines > numContentLines) {
-      numContentLines = child->numContentLines;
+  }
+  if (hasWords()) {
+    // If this block has Words, numContentLines should have been set by generateCCLines()
+    assert(numContentLines != UNKNOWN_COL);
+  } else {
+    // num content lines of a block is the max of the fixed lengths of its children (i.e. the min
+    // number of lines necessary to display all its children with vertical fillers)
+    numContentLines = 0;
+    for (const ASTPtr& child : children) {
+      if (child->numFixedLines > numContentLines) {
+        numContentLines = child->numFixedLines;
+      }
+    }
+  }
+  // Add up fixed-length content in vertical fillers to compute numFixedLines, which is the min
+  // number of lines necessary to display this block with vertical fillers.
+  numFixedLines = numContentLines;
+  for (const FillerPtr& filler : topFillers) {
+    if (!filler->length.shares) {
+      numFixedLines += filler->length.value;
+    }
+  }
+  for (const FillerPtr& filler : bottomFillers) {
+    if (!filler->length.shares) {
+      numFixedLines += filler->length.value;
     }
   }
 }
 
+void AST::computeNumTotalLines(bool isRoot) {
+  //numTotalLines = numFixedLines;
+}
+
+void Block::computeNumTotalLines(bool isRoot) {
+  if (isRoot) {
+    numTotalLines = numFixedLines;
+  }
+  for (const ASTPtr& child : children) {
+    child->numTotalLines = numContentLines;
+    child->computeNumTotalLines(false);
+  }
+}

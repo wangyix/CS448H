@@ -7,9 +7,13 @@
 #include <cctype>
 #include <assert.h>
 
+static bool isSpace(char c) {
+  return (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v');
+}
+
 // Should be called after any token is parsed so that fptr is moved to the start of the next token
 void parseWhitespaces(const char** fptr) {
-  while (std::isspace(**fptr)) {
+  while (isSpace(**fptr)) {
     ++*fptr;
   }
 }
@@ -269,15 +273,15 @@ void dsl_printf(const char* format, ...) {
     root->computeStartEndCols(0, root->getFixedLength());
 
     std::vector<ConsistentContent> ccs;
-    root->flatten(root, ASTPtr(), &ccs, true);
+    root->flatten(root, root, &ccs, true);
 
     root->print();
     printf("\n\n");
 
     for (ConsistentContent& cc : ccs) {
-      printf("\n\n");
-      cc.print();
-      printf("\n");
+      //printf("\n\n");
+      //cc.print();
+      //printf("\n");
       cc.generateCCLines();
       /*for (CCLine& line : cc.lines) {
         line.printContent();
@@ -285,6 +289,16 @@ void dsl_printf(const char* format, ...) {
       }*/
     }
 
+    root->computeNumContentLines();
+    root->computeNumTotalLines(true);
+
+    printf("\n");
+    for (ConsistentContent& cc : ccs) {
+      printf("\n");
+      cc.print();
+      printf("\n");
+      printf("content: %d  fixed: %d  total: %d\n", cc.srcBlock->numContentLines, cc.srcBlock->numFixedLines, cc.srcBlock->numTotalLines);
+    }
 
   } catch (DSLException& e) {
     printf("%s\n", format);
