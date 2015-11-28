@@ -335,7 +335,7 @@ void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* cc
 void Block::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* ccs, bool firstInParent,
                     std::vector<FillerPtr>* topFillersStack, std::vector<FillerPtr>* bottomFillersStack) {
   topFillersStack->insert(topFillersStack->end(), topFillers.begin(), topFillers.end());
-  bottomFillersStack->insert(bottomFillersStack->end(), bottomFillers.begin(), bottomFillers.end());
+  bottomFillersStack->insert(bottomFillersStack->begin(), bottomFillers.begin(), bottomFillers.end());
   firstInParent = true;
   for (int i = 0; i < children.size(); ++i) {
     ASTPtr& child = children[i];
@@ -343,7 +343,7 @@ void Block::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* 
     firstInParent = false;
   }
   topFillersStack->resize(topFillersStack->size() - topFillers.size());
-  bottomFillersStack->resize(bottomFillersStack->size() - bottomFillers.size());
+  bottomFillersStack->erase(bottomFillersStack->begin(), bottomFillersStack->begin() + bottomFillers.size());
 }
  
 
@@ -640,10 +640,10 @@ void verticalFillersToLinesChars(const std::vector<FillerPtr>& fillers, std::str
   }
 }
 
-void ConsistentContent::generateLinesChars() {
+void ConsistentContent::generateLinesChars(int rootNumTotalLines) {
   verticalFillersToLinesChars(topFillers, &topFillersChars);
   verticalFillersToLinesChars(bottomFillers, &bottomFillersChars);
-  assert(topFillersChars.length() + srcAst->numContentLines + bottomFillersChars.length() == srcAst->numTotalLines);
+  assert(topFillersChars.length() + srcAst->numContentLines + bottomFillersChars.length() == rootNumTotalLines);
 }
 
 void putChars(char c, int n) {
@@ -652,8 +652,8 @@ void putChars(char c, int n) {
   }
 }
 
-void ConsistentContent::printContentLine(int lineNum) {
-  assert(0 <= lineNum && lineNum < srcAst->numTotalLines);
+void ConsistentContent::printContentLine(int lineNum, int rootNumTotalLines) {
+  assert(0 <= lineNum && lineNum < rootNumTotalLines);
   if (lineNum < topFillersChars.length()) {
     putChars(topFillersChars[lineNum], endCol - startCol);
   } else {

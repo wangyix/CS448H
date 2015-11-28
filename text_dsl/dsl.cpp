@@ -294,13 +294,13 @@ void dsl_printf(const char* format, ...) {
       printf("\n");
       printf("content: %d  fixed: %d  total: %d\n", cc.srcAst->numContentLines, cc.srcAst->numFixedLines, cc.srcAst->numTotalLines);
       
-      cc.generateLinesChars();
+      cc.generateLinesChars(root->numTotalLines);
     }
 
     printf("\n\n");
     for (int i = 0; i < root->numTotalLines; ++i) {
       for (ConsistentContent& cc : ccs) {
-        cc.printContentLine(i);
+        cc.printContentLine(i, root->numTotalLines);
       }
       printf("\n");
     }

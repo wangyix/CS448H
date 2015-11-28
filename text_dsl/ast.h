@@ -198,8 +198,8 @@ struct ConsistentContent {
   void generateCCLine(int lineNum, CCLine* line);
   void generateCCLines();
 
-  void generateLinesChars();
-  void printContentLine(int lineNum);
+  void generateLinesChars(int rootNumTotalLines);
+  void printContentLine(int lineNum, int rootNumTotalLines);
 
   ASTPtr srcAst;
   bool childrenConsistent;  // true if all children startCol and endCol are known (line-independent)
