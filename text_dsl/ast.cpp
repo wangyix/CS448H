@@ -140,6 +140,33 @@ void Block::accept(Visitor* v) {
 }
 
 // -------------------------------------------------------------------------------------------------
+static void putChars(FILE* stream, char c, int n) {
+  for (int i = 0; i < n; ++i) {
+    fputc(c, stream);
+  }
+}
+static void putChars(char** bufAt, char c, int n) {
+  for (int i = 0; i < n; ++i) {
+    **bufAt = c;
+    ++*bufAt;
+  }
+}
+
+void StringLiteral::printContent(FILE* stream) const {
+  fprintf(stream, "%s", str.c_str());
+}
+void StringLiteral::printContent(char** bufAt) const {
+  *bufAt += str.copy(*bufAt, str.length()); // does not append '\0'
+}
+
+void RepeatedCharLL::printContent(FILE* stream) const {
+  putChars(stream, c, length.value);
+}
+void RepeatedCharLL::printContent(char** bufAt) const {
+  putChars(bufAt, c, length.value);
+}
+
+// -------------------------------------------------------------------------------------------------
 
 static void llSharesToLength(int totalLength, const std::vector<LiteralLength*>& lls, const char* f_at) {
   int lengthRemaining = totalLength;
@@ -650,16 +677,12 @@ void ConsistentContent::generateLinesChars(int rootNumTotalLines) {
   assert(topFillersChars.length() + srcAst->numContentLines + bottomFillersChars.length() == rootNumTotalLines);
 }
 
-static void fPutChars(FILE* stream, char c, int n) {
-  for (int i = 0; i < n; ++i) {
-    fputc(c, stream);
-  }
-}
+
 
 void ConsistentContent::printContentLine(FILE* stream, int lineNum, int rootNumTotalLines) {
   assert(0 <= lineNum && lineNum < rootNumTotalLines);
   if (lineNum < topFillersChars.length()) {
-    fPutChars(stream, topFillersChars[lineNum], endCol - startCol);
+    putChars(stream, topFillersChars[lineNum], endCol - startCol);
   } else {
     lineNum -= topFillersChars.length();
     if (lineNum < srcAst->numContentLines) {
@@ -670,7 +693,25 @@ void ConsistentContent::printContentLine(FILE* stream, int lineNum, int rootNumT
       }
     } else {
       lineNum -= srcAst->numContentLines;
-      fPutChars(stream, bottomFillersChars[lineNum], endCol - startCol);
+      putChars(stream, bottomFillersChars[lineNum], endCol - startCol);
+    }
+  }
+}
+void ConsistentContent::printContentLine(char** bufAt, int lineNum, int rootNumTotalLines) {
+  assert(0 <= lineNum && lineNum < rootNumTotalLines);
+  if (lineNum < topFillersChars.length()) {
+    putChars(bufAt, topFillersChars[lineNum], endCol - startCol);
+  } else {
+    lineNum -= topFillersChars.length();
+    if (lineNum < srcAst->numContentLines) {
+      if (words != NULL) {
+        lines[lineNum].printContent(bufAt);
+      } else {
+        lines[0].printContent(bufAt);
+      }
+    } else {
+      lineNum -= srcAst->numContentLines;
+      putChars(bufAt, bottomFillersChars[lineNum], endCol - startCol);
     }
   }
 }
