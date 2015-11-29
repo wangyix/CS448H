@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <stdexcept>
-#include "dsl.h"
+#include <windows.h>
 
+#include "dsl.h"
 
 using namespace std;
 
+#if 0
 char* s1 = "Candy had always prided herself upon having a vivid imagination. When, for instance, she privately compared her dreams with those her brothers described over the breakfast table, or her friends at school exchanged at break, she always discovered her own night visions were a lot wilder and weirder than anybody else's. But there was nothing she could remember dreaming -- by day or night -- that came close to the sight that greeted her in The Great Head of the Yebba Dim Day."
 "\nIt was a city, a city built from the litter of the sea.The street beneath her feet was made from timbers that had clearly been in the water for a long time, and the walls were lined with barnacle - encrusted stone.There were three columns supporting the roof, made of coral fragments cemented together.They were buzzing hives of life unto themselves; their elaborately constructed walls pierced with dozens of windows, from which light poured.";
 
@@ -46,5 +48,92 @@ int main() {
   fclose(file);
 
   getchar();
+  return 0;
+}
+#endif
+
+
+
+HANDLE consoleInputHandle;
+HANDLE consoleOutputHandle;
+DWORD fdwSaveOldMode;
+
+int width = 0, height = 0;
+
+
+void updateWindowSizeThread(PINPUT_RECORD irInbuf) {
+  while (true) {
+    //WaitForSingleObject(consoleInputHandle, INFINITE);
+    DWORD cNumRead;
+    if (!ReadConsoleInput(consoleInputHandle, irInbuf, 128, &cNumRead)) {
+      exit(1);
+    }
+    for (int i = 0; i < cNumRead; ++i) {
+      switch (irInbuf[i].EventType) {
+      case WINDOW_BUFFER_SIZE_EVENT: {
+        //updateWindowSize();
+        WINDOW_BUFFER_SIZE_RECORD wbsr = irInbuf[i].Event.WindowBufferSizeEvent;
+        width = wbsr.dwSize.X;
+        height = wbsr.dwSize.Y;
+        printf("%d x %d\n", height, width);
+      } break;
+      default:
+        break;
+      }
+    }
+  }
+}
+
+int main() {
+  /*INPUT_RECORD irInBuf[128];
+
+  consoleInputHandle = GetStdHandle(STD_INPUT_HANDLE);
+  if (consoleInputHandle == INVALID_HANDLE_VALUE) {
+    exit(1);
+  }
+  consoleOutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+  if (consoleOutputHandle == INVALID_HANDLE_VALUE) {
+    exit(1);
+  }
+  
+  // get initial console dimensions
+  CONSOLE_SCREEN_BUFFER_INFO csbi;
+  if (GetConsoleScreenBufferInfo(consoleOutputHandle, &csbi)) {
+    height = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+    width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+    printf("%d x %d\n", height, width);
+  } else {
+    exit(1);
+  }
+
+  // save console mode, set console mode to enable window input
+  if (!GetConsoleMode(consoleInputHandle, &fdwSaveOldMode)) {
+    exit(1);
+  }
+  if (!SetConsoleMode(consoleInputHandle, ENABLE_WINDOW_INPUT)) {
+    exit(1);
+  }
+  
+  updateWindowSizeThread(irInBuf);
+  
+  getchar();
+  
+  // restore input mode on exit
+  SetConsoleMode(consoleInputHandle, fdwSaveOldMode);
+  */
+
+  HWND consoleWindow = GetConsoleWindow();
+  
+  RECT consoleRect;
+  if (!GetClientRect(consoleWindow, &consoleRect)) {
+    exit(1);
+  }
+
+  int widthPixels = consoleRect.right - consoleRect.left;
+  int heightPixels = consoleRect.bottom - consoleRect.top;
+  printf("%d x %d", widthPixels, heightPixels);
+
+  getchar();
+
   return 0;
 }
