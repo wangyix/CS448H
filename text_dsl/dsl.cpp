@@ -364,3 +364,51 @@ void dsl_sprintf(std::string* str, const char* format, ...) {
   }
   va_end(args);
 }
+
+void dsl_sprintf(std::vector<std::string>* lines, const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+  const char* f_at = format;
+  ASTPtr root;
+  try {
+    root = parseFormat(&f_at, &args);
+    root->convertLLSharesToLength();
+    root->computeStartEndCols(0, root->getFixedLength());
+
+    std::vector<ConsistentContent> ccs;
+    std::vector<FillerPtr> topFillersStack, bottomFillersStack;
+    root->flatten(root, root, &ccs, true, &topFillersStack, &bottomFillersStack);
+
+    for (ConsistentContent& cc : ccs) {
+      cc.generateCCLines();
+    }
+
+    root->computeNumContentLines();
+    root->computeNumTotalLines(true);
+    root->computeBlockVerticalFillersShares();
+
+    for (ConsistentContent& cc : ccs) {
+      cc.generateLinesChars(root->numTotalLines);
+    }
+
+    int rootNumCols = root->endCol - root->startCol;
+    lines->resize(root->numTotalLines);
+    for (int lineNum = 0; lineNum < root->numTotalLines; ++lineNum) {
+      std::string& line = lines->at(lineNum);
+      line.resize(rootNumCols);
+      char* bufAt = &line.front();
+      for (int i = 0; i < ccs.size(); ++i) {
+        ccs[i].printContentLine(&bufAt, lineNum, root->numTotalLines);
+      }
+    }
+
+  } catch (DSLException& e) {
+    fprintf(stderr, "%s\n", format);
+    for (int i = 0; i < e.f_at - format; ++i) {
+      fputc(' ', stderr);
+    }
+    fprintf(stderr, "^\n");
+    fprintf(stderr, "Error at %d: %s\n", e.f_at - format, e.what());
+  }
+  va_end(args);
+}

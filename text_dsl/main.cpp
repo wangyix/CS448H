@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <stdexcept>
-#include <windows.h>
+#include <vector>
+#include <string>
 
 #include "dsl.h"
 
 using namespace std;
 
-#if 0
 char* s1 = "Candy had always prided herself upon having a vivid imagination. When, for instance, she privately compared her dreams with those her brothers described over the breakfast table, or her friends at school exchanged at break, she always discovered her own night visions were a lot wilder and weirder than anybody else's. But there was nothing she could remember dreaming -- by day or night -- that came close to the sight that greeted her in The Great Head of the Yebba Dim Day."
 "\nIt was a city, a city built from the litter of the sea.The street beneath her feet was made from timbers that had clearly been in the water for a long time, and the walls were lined with barnacle - encrusted stone.There were three columns supporting the roof, made of coral fragments cemented together.They were buzzing hives of life unto themselves; their elaborately constructed walls pierced with dozens of windows, from which light poured.";
 
@@ -18,24 +18,26 @@ char* s3 = "\n";
 int linefunc(int line) {
   return line % 8;
 }
+
+#if 0
 int main() {
   //FILE* file = fopen("out.txt", "w");
 
   std::string out;
   dsl_sprintf(&out, "150[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
-             &linefunc, s1, s2, s1);
+    &linefunc, s1, s2, s1);
 
   printf("%s", out.c_str());
-  
+
 
   //dsl_fprintf(file, "100[ 4[1s' ']^{30'1'}v{30'1'}  1s[  4[1s' ']^{20'2'}v{20'2'}  1s[  4[1s' ']^{10'3'}v{10'3'}   1s[{w' '}1s' ']^{1s'a'}v{1s'z'}   ]^{1s'b'}v{1s'y'}  ]^{1s'c'}v{1s'x'}  ]", s2);
-  
+
   /*
   dsl_printf("100[  10s[3[1s' ']  {w} 10[1s' ']] 4s' ' 'heym' ]", "source1");
 
-  
+
   dsl_printf("100[  1s[5[1s' ']^{}  1s' '{w}3s' '  5[1s' ']v{}]^{}v{}  '|'  6s[ 1[2s' ']^{}v{} #s' ' 2s' ' ]^{}v{}  ]^{}v{}",
-    "source1", &linefunc);
+  "source1", &linefunc);
 
   dsl_printf("100[ 1s[1s' '] 1s[1s' ']  ]^{'1'}v{'2'}");
 
@@ -56,11 +58,24 @@ int main() {
 #endif
 
 
-#include <Windows.h>
+//string formatNoLength = "[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]";
+string formatNoLength = "[ '+ ' 1s' ' {w' '} ]";
+vector<string> lines;
+
+void updateLines(int numCols) {
+  string format = to_string(numCols) + formatNoLength;
+  //dsl_sprintf(&lines, format.c_str(), &linefunc, s1, s2, s1);
+  dsl_sprintf(&lines, format.c_str(), s1);
+}
+
+
+#include <windows.h>
 #define ErrorMessageBox(a,b) MessageBox(a,b,"Error:",MB_ICONWARNING);
 
 bool SetUpWindowClass(char*, int, int, int);
 LRESULT CALLBACK WindowProcedure(HWND, unsigned int, WPARAM, LPARAM);
+
+HFONT font = (HFONT)GetStockObject(ANSI_FIXED_FONT);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpsCmdLine, int iCmdShow) {
   if (!SetUpWindowClass("1", 255, 255, 255)) {
@@ -99,6 +114,14 @@ bool SetUpWindowClass(char* cpTitle, int iR, int iG, int iB) {
   else return false;
 }
 
+void drawLines(HDC hDC) {
+  SelectObject(hDC, font);
+  int iY = 5;
+  for (int i = 0; i < lines.size(); i++, iY += 20) {
+    TextOut(hDC, 5, iY, lines[i].c_str(), lines[i].length());
+  }
+}
+
 LRESULT CALLBACK WindowProcedure(HWND hWnd, unsigned int uiMsg, WPARAM wParam, LPARAM lParam) {
   switch (uiMsg) {
   case WM_CLOSE:
@@ -107,21 +130,25 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, unsigned int uiMsg, WPARAM wParam, L
   case WM_DESTROY:
     PostQuitMessage(0);
     break;
+  case WM_SIZE: {
+    int widthPixels = LOWORD(lParam);
+    int numCols = widthPixels / 8.5;
+    updateLines(numCols);
+    HDC hDC = GetDC(hWnd);
+    drawLines(hDC);
+    ReleaseDC(hWnd, hDC);
+  } break;
   case WM_PAINT: {
     PAINTSTRUCT ps;
     HDC hDC = BeginPaint(hWnd, &ps);
-    char* cpaText[] = {
+    /*char* cpaText[] = {
       "Hello World!",
       "This is a hello world application made in the Win32 API",
       "This example was made by some random dude, aka -LeetGamer-"
-    };
-    int iY = 5;
-    for (int iLoopCounter = 0; iLoopCounter < 3; iLoopCounter++, iY += 20) {
-      TextOut(hDC, 5, iY, cpaText[iLoopCounter], strlen(cpaText[iLoopCounter]));
-    }
+    };*/
+    drawLines(hDC);
     EndPaint(hWnd, &ps);
-  }
-                 break;
+  } break;
   }
   return DefWindowProc(hWnd, uiMsg, wParam, lParam);
 }
