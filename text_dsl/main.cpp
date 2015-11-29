@@ -19,10 +19,13 @@ int linefunc(int line) {
   return line % 8;
 }
 int main() {
-  FILE* file = fopen("out.txt", "w");
+  //FILE* file = fopen("out.txt", "w");
 
-  dsl_fprintf(file, "150[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
+  std::string out;
+  dsl_sprintf(&out, "150[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
              &linefunc, s1, s2, s1);
+
+  printf("%s", out.c_str());
   
 
   //dsl_fprintf(file, "100[ 4[1s' ']^{30'1'}v{30'1'}  1s[  4[1s' ']^{20'2'}v{20'2'}  1s[  4[1s' ']^{10'3'}v{10'3'}   1s[{w' '}1s' ']^{1s'a'}v{1s'z'}   ]^{1s'b'}v{1s'y'}  ]^{1s'c'}v{1s'x'}  ]", s2);
@@ -45,7 +48,7 @@ int main() {
 
   //dsl_printf("100[  1s[{w' '}1s' ']^{1s'*'}v{'=='} '|' 2s[{w' '}1s' ']^{2s'+' 'hi'}v{'--' 1s'o'} ]", s1, s2);
 
-  fclose(file);
+  //fclose(file);
 
   getchar();
   return 0;
@@ -53,87 +56,73 @@ int main() {
 #endif
 
 
+#include <Windows.h>
+#define ErrorMessageBox(a,b) MessageBox(a,b,"Error:",MB_ICONWARNING);
 
-HANDLE consoleInputHandle;
-HANDLE consoleOutputHandle;
-DWORD fdwSaveOldMode;
+bool SetUpWindowClass(char*, int, int, int);
+LRESULT CALLBACK WindowProcedure(HWND, unsigned int, WPARAM, LPARAM);
 
-int width = 0, height = 0;
-
-
-void updateWindowSizeThread(PINPUT_RECORD irInbuf) {
-  while (true) {
-    //WaitForSingleObject(consoleInputHandle, INFINITE);
-    DWORD cNumRead;
-    if (!ReadConsoleInput(consoleInputHandle, irInbuf, 128, &cNumRead)) {
-      exit(1);
-    }
-    for (int i = 0; i < cNumRead; ++i) {
-      switch (irInbuf[i].EventType) {
-      case WINDOW_BUFFER_SIZE_EVENT: {
-        //updateWindowSize();
-        WINDOW_BUFFER_SIZE_RECORD wbsr = irInbuf[i].Event.WindowBufferSizeEvent;
-        width = wbsr.dwSize.X;
-        height = wbsr.dwSize.Y;
-        printf("%d x %d\n", height, width);
-      } break;
-      default:
-        break;
-      }
-    }
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpsCmdLine, int iCmdShow) {
+  if (!SetUpWindowClass("1", 255, 255, 255)) {
+    ErrorMessageBox(NULL, "Window class \"1\" failed");
+    return 0;
   }
-}
-
-int main() {
-  /*INPUT_RECORD irInBuf[128];
-
-  consoleInputHandle = GetStdHandle(STD_INPUT_HANDLE);
-  if (consoleInputHandle == INVALID_HANDLE_VALUE) {
-    exit(1);
+  HWND hWnd = CreateWindow("1", "Hello World - Win32 API", WS_OVERLAPPEDWINDOW, 315, 115, 700, 480, NULL, NULL, hInstance, NULL);
+  if (!hWnd) {
+    ErrorMessageBox(NULL, "Window handle = NUL");
+    return 0;
   }
-  consoleOutputHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-  if (consoleOutputHandle == INVALID_HANDLE_VALUE) {
-    exit(1);
+  ShowWindow(hWnd, SW_SHOW);
+  MSG uMsg;
+  while (GetMessage(&uMsg, NULL, 0, 0) > 0) {
+    TranslateMessage(&uMsg);
+    DispatchMessage(&uMsg);
   }
-  
-  // get initial console dimensions
-  CONSOLE_SCREEN_BUFFER_INFO csbi;
-  if (GetConsoleScreenBufferInfo(consoleOutputHandle, &csbi)) {
-    height = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
-    width = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-    printf("%d x %d\n", height, width);
-  } else {
-    exit(1);
-  }
-
-  // save console mode, set console mode to enable window input
-  if (!GetConsoleMode(consoleInputHandle, &fdwSaveOldMode)) {
-    exit(1);
-  }
-  if (!SetConsoleMode(consoleInputHandle, ENABLE_WINDOW_INPUT)) {
-    exit(1);
-  }
-  
-  updateWindowSizeThread(irInBuf);
-  
-  getchar();
-  
-  // restore input mode on exit
-  SetConsoleMode(consoleInputHandle, fdwSaveOldMode);
-  */
-
-  HWND consoleWindow = GetConsoleWindow();
-  
-  RECT consoleRect;
-  if (!GetClientRect(consoleWindow, &consoleRect)) {
-    exit(1);
-  }
-
-  int widthPixels = consoleRect.right - consoleRect.left;
-  int heightPixels = consoleRect.bottom - consoleRect.top;
-  printf("%d x %d", widthPixels, heightPixels);
-
-  getchar();
-
   return 0;
 }
+
+bool SetUpWindowClass(char* cpTitle, int iR, int iG, int iB) {
+  WNDCLASSEX WindowClass;
+  WindowClass.cbClsExtra = 0;
+  WindowClass.cbWndExtra = 0;
+  WindowClass.cbSize = sizeof(WNDCLASSEX);
+  WindowClass.style = 0;
+  WindowClass.lpszClassName = cpTitle;
+  WindowClass.lpszMenuName = NULL;
+  WindowClass.lpfnWndProc = WindowProcedure;
+  WindowClass.hInstance = GetModuleHandle(NULL);
+  WindowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+  WindowClass.hbrBackground = CreateSolidBrush(RGB(iR, iG, iB));
+  WindowClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+  WindowClass.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
+  if (RegisterClassEx(&WindowClass)) return true;
+  else return false;
+}
+
+LRESULT CALLBACK WindowProcedure(HWND hWnd, unsigned int uiMsg, WPARAM wParam, LPARAM lParam) {
+  switch (uiMsg) {
+  case WM_CLOSE:
+    DestroyWindow(hWnd);
+    break;
+  case WM_DESTROY:
+    PostQuitMessage(0);
+    break;
+  case WM_PAINT: {
+    PAINTSTRUCT ps;
+    HDC hDC = BeginPaint(hWnd, &ps);
+    char* cpaText[] = {
+      "Hello World!",
+      "This is a hello world application made in the Win32 API",
+      "This example was made by some random dude, aka -LeetGamer-"
+    };
+    int iY = 5;
+    for (int iLoopCounter = 0; iLoopCounter < 3; iLoopCounter++, iY += 20) {
+      TextOut(hDC, 5, iY, cpaText[iLoopCounter], strlen(cpaText[iLoopCounter]));
+    }
+    EndPaint(hWnd, &ps);
+  }
+                 break;
+  }
+  return DefWindowProc(hWnd, uiMsg, wParam, lParam);
+}
+
