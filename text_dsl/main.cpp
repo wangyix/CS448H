@@ -61,7 +61,7 @@ int main() {
 int widthPixels, heightPixels;
 
 //string formatNoLength = "[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]";
-string formatNoLength = "[ 1s[{w' '}1s' ']^{1s'*'}v{} ' | ' 1s[1s' '{w' '1s' '}]^{'_'1s'+'}v{1s'-'} ' @ ' 1s[1s' '{w'::'}]^{1s'.'}v{1s'.'} ]";
+string formatNoLength = "[' ' 1s[{w' '}1s' ']^{1s'*'}v{} ' | ' 1s[1s' '{w' '1s' '}]^{'_'1s'+'}v{1s'-'} ' @ ' 1s[1s' '{w'::'}]^{1s'.'}v{1s'.'} ' ']";
 vector<string> lines;
 
 void updateLines(int numCols) {
