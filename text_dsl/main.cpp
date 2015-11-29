@@ -61,13 +61,13 @@ int main() {
 int widthPixels, heightPixels;
 
 //string formatNoLength = "[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]";
-string formatNoLength = "[ '+ ' 1s' ' {w' '} ]";
+string formatNoLength = "[ 1s[{w' '}1s' ']^{1s'*'}v{} ' | ' 1s[1s' '{w' '1s' '}]^{'_'1s'+'}v{1s'-'} ' @ ' 1s[1s' '{w'::'}]^{1s'.'}v{1s'.'} ]";
 vector<string> lines;
 
 void updateLines(int numCols) {
   string format = to_string(numCols) + formatNoLength;
   //dsl_sprintf(&lines, format.c_str(), &linefunc, s1, s2, s1);
-  dsl_sprintf(&lines, format.c_str(), s1);
+  dsl_sprintf(&lines, format.c_str(), s1, s2, s1);
 }
 
 
