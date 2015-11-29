@@ -144,20 +144,19 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, unsigned int uiMsg, WPARAM wParam, L
   case WM_SIZE: {
     widthPixels = LOWORD(lParam);
     heightPixels = HIWORD(lParam);
-    int numCols = widthPixels / 8.5;
-    updateLines(numCols);
+
     HDC hDC = GetDC(hWnd);
+    SelectObject(hDC, font);
+    ABCFLOAT abcf;
+    GetCharABCWidthsFloat(hDC, 'a', 'a', &abcf);
+    int numCols = widthPixels / abcf.abcfB - 1;
+    updateLines(numCols);    
     drawLines(hDC);
     ReleaseDC(hWnd, hDC);
   } break;
   case WM_PAINT: {
     PAINTSTRUCT ps;
     HDC hDC = BeginPaint(hWnd, &ps);
-    /*char* cpaText[] = {
-      "Hello World!",
-      "This is a hello world application made in the Win32 API",
-      "This example was made by some random dude, aka -LeetGamer-"
-    };*/
     drawLines(hDC);
     EndPaint(hWnd, &ps);
   } break;
