@@ -58,6 +58,8 @@ int main() {
 #endif
 
 
+int widthPixels, heightPixels;
+
 //string formatNoLength = "[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]";
 string formatNoLength = "[ '+ ' 1s' ' {w' '} ]";
 vector<string> lines;
@@ -115,6 +117,15 @@ bool SetUpWindowClass(char* cpTitle, int iR, int iG, int iB) {
 }
 
 void drawLines(HDC hDC) {
+  RECT rect;
+  rect.left = 0;
+  rect.right = widthPixels;
+  rect.top = 0;
+  rect.bottom = heightPixels;
+  HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
+  FillRect(hDC, &rect, brush);
+  DeleteObject(brush);
+
   SelectObject(hDC, font);
   int iY = 5;
   for (int i = 0; i < lines.size(); i++, iY += 20) {
@@ -131,7 +142,8 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, unsigned int uiMsg, WPARAM wParam, L
     PostQuitMessage(0);
     break;
   case WM_SIZE: {
-    int widthPixels = LOWORD(lParam);
+    widthPixels = LOWORD(lParam);
+    heightPixels = HIWORD(lParam);
     int numCols = widthPixels / 8.5;
     updateLines(numCols);
     HDC hDC = GetDC(hWnd);
