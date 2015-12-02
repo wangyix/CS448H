@@ -260,26 +260,24 @@ static ASTPtr parseFormat(const char** fptr, va_list* args) {
   return root;
 }
 
-void dsl_fprintf(FILE* stream, const char* format, ...) {
-  va_list args;
-  va_start(args, format);
+
+static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* format, va_list* args) {
+  ccs->clear();
   const char* f_at = format;
   ASTPtr root;
   try {
-    printf("\n\n%s\n", format);
+    //printf("\n\n%s\n", format);
 
-    root = parseFormat(&f_at, &args);
+    root = parseFormat(&f_at, args);
     root->convertLLSharesToLength();
     root->computeStartEndCols(0, root->getFixedLength());
 
-    std::vector<ConsistentContent> ccs;
     std::vector<FillerPtr> topFillersStack, bottomFillersStack;
-    root->flatten(root, root, &ccs, true, &topFillersStack, &bottomFillersStack);
+    root->flatten(root, root, ccs, true, &topFillersStack, &bottomFillersStack);
+    //root->print();
+    //printf("\n");
 
-    root->print();
-    printf("\n");
-
-    for (ConsistentContent& cc : ccs) {
+    for (ConsistentContent& cc : *ccs) {
       cc.generateCCLines();
     }
 
@@ -287,23 +285,15 @@ void dsl_fprintf(FILE* stream, const char* format, ...) {
     root->computeNumTotalLines(true);
     root->computeBlockVerticalFillersShares();
 
-    printf("\n");
-    for (ConsistentContent& cc : ccs) {
-      printf("\n");
+    //printf("\n");
+    for (ConsistentContent& cc : *ccs) {
+      /*printf("\n");
       cc.print();
       printf("\n");
-      printf("content: %d  fixed: %d  total: %d\n", cc.srcAst->numContentLines, cc.srcAst->numFixedLines, cc.srcAst->numTotalLines);
-      
+      printf("content: %d  fixed: %d  total: %d\n", cc.srcAst->numContentLines, cc.srcAst->numFixedLines, cc.srcAst->numTotalLines);*/
       cc.generateLinesChars(root->numTotalLines);
     }
-
-    printf("\n\n");
-    for (int i = 0; i < root->numTotalLines; ++i) {
-      for (ConsistentContent& cc : ccs) {
-        cc.printContentLine(stream, i, root->numTotalLines);
-      }
-      fprintf(stream, "\n");
-    }
+    //printf("\n\n");
 
   } catch (DSLException& e) {
     fprintf(stderr, "%s\n", format);
@@ -313,102 +303,79 @@ void dsl_fprintf(FILE* stream, const char* format, ...) {
     fprintf(stderr, "^\n");
     fprintf(stderr, "Error at %d: %s\n", e.f_at - format, e.what());
   }
-  va_end(args);
 
+  return root;
+}
+
+void dsl_fprintf(FILE* stream, const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+  std::vector<ConsistentContent> ccs;
+  ASTPtr root = generateCCs(&ccs, format, &args);
+  va_end(args);
+    
+  for (int i = 0; i < root->numTotalLines; ++i) {
+    for (ConsistentContent& cc : ccs) {
+      cc.printContentLine(stream, i, root->numTotalLines);
+    }
+    fprintf(stream, "\n");
+  }
 }
 
 void dsl_sprintf(std::string* str, const char* format, ...) {
   va_list args;
   va_start(args, format);
-  const char* f_at = format;
-  ASTPtr root;
-  try {
-    root = parseFormat(&f_at, &args);
-    root->convertLLSharesToLength();
-    root->computeStartEndCols(0, root->getFixedLength());
-
-    std::vector<ConsistentContent> ccs;
-    std::vector<FillerPtr> topFillersStack, bottomFillersStack;
-    root->flatten(root, root, &ccs, true, &topFillersStack, &bottomFillersStack);
-    
-    for (ConsistentContent& cc : ccs) {
-      cc.generateCCLines();
-    }
-
-    root->computeNumContentLines();
-    root->computeNumTotalLines(true);
-    root->computeBlockVerticalFillersShares();
-
-    for (ConsistentContent& cc : ccs) {
-      cc.generateLinesChars(root->numTotalLines);
-    }
-
-    int rootNumCols = root->endCol - root->startCol;
-    str->resize((rootNumCols + 1) * root->numTotalLines + 10);
-    char* bufAt = &str->front();
-    for (int i = 0; i < root->numTotalLines; ++i) {
-      for (ConsistentContent& cc : ccs) {
-        cc.printContentLine(&bufAt, i, root->numTotalLines);
-      }
-      *bufAt = '\n';
-      ++bufAt;
-    }
-    
-  } catch (DSLException& e) {
-    fprintf(stderr, "%s\n", format);
-    for (int i = 0; i < e.f_at - format; ++i) {
-      fputc(' ', stderr);
-    }
-    fprintf(stderr, "^\n");
-    fprintf(stderr, "Error at %d: %s\n", e.f_at - format, e.what());
-  }
+  std::vector<ConsistentContent> ccs;
+  ASTPtr root = generateCCs(&ccs, format, &args);
   va_end(args);
+
+  int rootNumCols = root->endCol - root->startCol;
+  str->resize((rootNumCols + 1) * root->numTotalLines);
+  char* bufAt = &str->front();
+  for (int i = 0; i < root->numTotalLines; ++i) {
+    for (ConsistentContent& cc : ccs) {
+      cc.printContentLine(&bufAt, i, root->numTotalLines);
+    }
+    *bufAt = '\n';
+    ++bufAt;
+  }  
 }
 
-void dsl_sprintf(std::vector<std::string>* lines, const char* format, ...) {
+void dsl_sprintf_lines(std::vector<std::string>* lines, const char* format, ...) {
   va_list args;
   va_start(args, format);
-  const char* f_at = format;
-  ASTPtr root;
-  try {
-    root = parseFormat(&f_at, &args);
-    root->convertLLSharesToLength();
-    root->computeStartEndCols(0, root->getFixedLength());
-
-    std::vector<ConsistentContent> ccs;
-    std::vector<FillerPtr> topFillersStack, bottomFillersStack;
-    root->flatten(root, root, &ccs, true, &topFillersStack, &bottomFillersStack);
-
-    for (ConsistentContent& cc : ccs) {
-      cc.generateCCLines();
-    }
-
-    root->computeNumContentLines();
-    root->computeNumTotalLines(true);
-    root->computeBlockVerticalFillersShares();
-
-    for (ConsistentContent& cc : ccs) {
-      cc.generateLinesChars(root->numTotalLines);
-    }
-
-    int rootNumCols = root->endCol - root->startCol;
-    lines->resize(root->numTotalLines);
-    for (int lineNum = 0; lineNum < root->numTotalLines; ++lineNum) {
-      std::string& line = lines->at(lineNum);
-      line.resize(rootNumCols);
-      char* bufAt = &line.front();
-      for (int i = 0; i < ccs.size(); ++i) {
-        ccs[i].printContentLine(&bufAt, lineNum, root->numTotalLines);
-      }
-    }
-
-  } catch (DSLException& e) {
-    fprintf(stderr, "%s\n", format);
-    for (int i = 0; i < e.f_at - format; ++i) {
-      fputc(' ', stderr);
-    }
-    fprintf(stderr, "^\n");
-    fprintf(stderr, "Error at %d: %s\n", e.f_at - format, e.what());
-  }
+  std::vector<ConsistentContent> ccs;
+  ASTPtr root = generateCCs(&ccs, format, &args);
   va_end(args);
+
+  int rootNumCols = root->endCol - root->startCol;
+  lines->resize(root->numTotalLines);
+  for (int lineNum = 0; lineNum < root->numTotalLines; ++lineNum) {
+    std::string& line = lines->at(lineNum);
+    line.resize(rootNumCols);
+    char* bufAt = &line.front();
+    for (int i = 0; i < ccs.size(); ++i) {
+      ccs[i].printContentLine(&bufAt, lineNum, root->numTotalLines);
+    }
+  }
+}
+
+void dsl_sprintf_lines_append(std::vector<std::string>* lines, const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+  std::vector<ConsistentContent> ccs;
+  ASTPtr root = generateCCs(&ccs, format, &args);
+  va_end(args);
+
+  int rootNumCols = root->endCol - root->startCol;
+  lines->reserve(lines->size() + root->numTotalLines);
+  for (int lineNum = 0; lineNum < root->numTotalLines; ++lineNum) {
+    lines->push_back(std::string());
+    std::string& line = lines->back();
+    line.resize(rootNumCols);
+    char* bufAt = &line.front();
+    for (int i = 0; i < ccs.size(); ++i) {
+      ccs[i].printContentLine(&bufAt, lineNum, root->numTotalLines);
+    }
+  }
 }

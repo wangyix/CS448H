@@ -55,8 +55,8 @@ int main() {
   getchar();
   return 0;
 }
-#endif
 
+#else
 
 int widthPixels, heightPixels;
 
@@ -67,7 +67,7 @@ vector<string> lines;
 void updateLines(int numCols) {
   string format = to_string(numCols) + formatNoLength;
   //dsl_sprintf(&lines, format.c_str(), &linefunc, s1, s2, s1);
-  dsl_sprintf(&lines, format.c_str(), s1, s2, s1);
+  dsl_sprintf_lines(&lines, format.c_str(), s1, s2, s1);
 }
 
 
@@ -164,3 +164,4 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, unsigned int uiMsg, WPARAM wParam, L
   return DefWindowProc(hWnd, uiMsg, wParam, lParam);
 }
 
+#endif

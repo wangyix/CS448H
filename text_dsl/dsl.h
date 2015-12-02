@@ -7,6 +7,7 @@
 
 void dsl_fprintf(FILE* stream, const char* format, ...);
 void dsl_sprintf(std::string* str, const char* format, ...);
-void dsl_sprintf(std::vector<std::string>* lines, const char* format, ...);
+void dsl_sprintf_lines(std::vector<std::string>* lines, const char* format, ...);
+void dsl_sprintf_lines_append(std::vector<std::string>* lines, const char* format, ...);
 
 #endif
