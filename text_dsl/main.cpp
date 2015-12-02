@@ -34,7 +34,7 @@ int main() {
 
 
 
-
+const int fontPointSize = 10;
 
 int widthPixels, heightPixels;
 
@@ -60,7 +60,8 @@ void updateLines(int numCols) {
 bool SetUpWindowClass(char*, int, int, int);
 LRESULT CALLBACK WindowProcedure(HWND, unsigned int, WPARAM, LPARAM);
 
-HFONT font = (HFONT)GetStockObject(ANSI_FIXED_FONT);
+HFONT font = (HFONT)GetStockObject(OEM_FIXED_FONT);
+
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpsCmdLine, int iCmdShow) {
   if (!SetUpWindowClass("1", 255, 255, 255)) {
@@ -99,6 +100,15 @@ bool SetUpWindowClass(char* cpTitle, int iR, int iG, int iB) {
   else return false;
 }
 
+HFONT createAndSetSizedFont(HDC hDC, int pointSize, HFONT* oldFont) {
+  LOGFONT logFont;
+  GetObject(font, sizeof(LOGFONT), &logFont);
+  logFont.lfHeight = -MulDiv(pointSize, GetDeviceCaps(hDC, LOGPIXELSY), 72);
+  HFONT newFont = CreateFontIndirect(&logFont);
+  *oldFont = (HFONT)SelectObject(hDC, newFont);
+  return newFont;
+}
+
 void drawLines(HDC hDC) {
   RECT rect;
   rect.left = 0;
@@ -108,8 +118,7 @@ void drawLines(HDC hDC) {
   HBRUSH brush = CreateSolidBrush(RGB(255, 255, 255));
   FillRect(hDC, &rect, brush);
   DeleteObject(brush);
-
-  SelectObject(hDC, font);
+  
   int iY = 5;
   for (int i = 0; i < lines.size(); i++, iY += 20) {
     TextOut(hDC, 0, iY, lines[i].c_str(), lines[i].length());
@@ -129,18 +138,34 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, unsigned int uiMsg, WPARAM wParam, L
     heightPixels = HIWORD(lParam);
 
     HDC hDC = GetDC(hWnd);
-    SelectObject(hDC, font);
+    
+    HFONT oldFont;
+    HFONT sizedFont = createAndSetSizedFont(hDC, fontPointSize, &oldFont);
+
     ABCFLOAT abcf;
     GetCharABCWidthsFloat(hDC, 'a', 'a', &abcf);
     int numCols = widthPixels / abcf.abcfB;
-    updateLines(numCols);    
+
+    updateLines(numCols);
     drawLines(hDC);
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(sizedFont);
+
     ReleaseDC(hWnd, hDC);
   } break;
   case WM_PAINT: {
     PAINTSTRUCT ps;
     HDC hDC = BeginPaint(hWnd, &ps);
+
+    HFONT oldFont;
+    HFONT sizedFont = createAndSetSizedFont(hDC, fontPointSize, &oldFont);
+
     drawLines(hDC);
+
+    SelectObject(hDC, oldFont);
+    DeleteObject(sizedFont);
+
     EndPaint(hWnd, &ps);
   } break;
   }
