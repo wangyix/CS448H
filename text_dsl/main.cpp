@@ -19,55 +19,38 @@ int linefunc(int line) {
   return line % 8;
 }
 
-#if 0
+
+
+
+
 int main() {
-  //FILE* file = fopen("out.txt", "w");
-
-  std::string out;
-  dsl_sprintf(&out, "150[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
+  dsl_fprintf(stdout, "150[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
     &linefunc, s1, s2, s1);
-
-  printf("%s", out.c_str());
-
-
-  //dsl_fprintf(file, "100[ 4[1s' ']^{30'1'}v{30'1'}  1s[  4[1s' ']^{20'2'}v{20'2'}  1s[  4[1s' ']^{10'3'}v{10'3'}   1s[{w' '}1s' ']^{1s'a'}v{1s'z'}   ]^{1s'b'}v{1s'y'}  ]^{1s'c'}v{1s'x'}  ]", s2);
-
-  /*
-  dsl_printf("100[  10s[3[1s' ']  {w} 10[1s' ']] 4s' ' 'heym' ]", "source1");
-
-
-  dsl_printf("100[  1s[5[1s' ']^{}  1s' '{w}3s' '  5[1s' ']v{}]^{}v{}  '|'  6s[ 1[2s' ']^{}v{} #s' ' 2s' ' ]^{}v{}  ]^{}v{}",
-  "source1", &linefunc);
-
-  dsl_printf("100[ 1s[1s' '] 1s[1s' ']  ]^{'1'}v{'2'}");
-
-  dsl_printf("100[ 1s[1s' ' {w ' ' 1s' '}]  2s[ #'|' 2s' ' {w'__'} 1s' ' #'|' ]  ]", s1, &linefunc, s1, &linefunc);
-  */
-
-  //dsl_printf("60[ #'|' {w 1s' '' '} #'|' 1s' ']", &linefunc, s1, &linefunc);
-
-  //dsl_printf("60'-'");
-
-  //dsl_printf("100[  1s[{w' '}1s' ']^{1s'*'}v{'=='} '|' 2s[{w' '}1s' ']^{2s'+' 'hi'}v{'--' 1s'o'} ]", s1, s2);
-
-  //fclose(file);
 
   getchar();
   return 0;
 }
 
-#else
+
+
+
+
 
 int widthPixels, heightPixels;
 
 //string formatNoLength = "[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]";
-string formatNoLength = "[' ' 1s[{w' '}1s' ']^{1s'*'}v{} ' | ' 1s[1s' '{w' '1s' '}]^{'_'1s'+'}v{1s'-'} ' @ ' 1s[1s' '{w'::'}]^{1s'.'}v{1s'.'} ' ']";
+string textFormatNoLength = "[' ' 1s[{w' '}1s' ']^{}v{1s'.'} ' | ' 1s[1s' '{w' '1s' '}]^{1s' ''='}v{'='1s' '} ' @ ' 1s[1s' '{w'::'}]^{1s' '}v{1s' '} ' ']";
+string borderFormatNoLength = "[' ' 1s'-' ' + ' 1s'-' ' @ ' 1s'-' ' ']";
 vector<string> lines;
 
 void updateLines(int numCols) {
-  string format = to_string(numCols) + formatNoLength;
+  string textFormat = to_string(numCols) + textFormatNoLength;
+  string borderFormat = to_string(numCols) + borderFormatNoLength;
+  lines.clear();
   //dsl_sprintf(&lines, format.c_str(), &linefunc, s1, s2, s1);
-  dsl_sprintf_lines(&lines, format.c_str(), s1, s2, s1);
+  dsl_sprintf_lines_append(&lines, textFormat.c_str(), s1, s2, s1);
+  dsl_sprintf_lines_append(&lines, borderFormat.c_str());
+  dsl_sprintf_lines_append(&lines, textFormat.c_str(), s2, s1, s2);
 }
 
 
@@ -129,7 +112,7 @@ void drawLines(HDC hDC) {
   SelectObject(hDC, font);
   int iY = 5;
   for (int i = 0; i < lines.size(); i++, iY += 20) {
-    TextOut(hDC, 5, iY, lines[i].c_str(), lines[i].length());
+    TextOut(hDC, 0, iY, lines[i].c_str(), lines[i].length());
   }
 }
 
@@ -149,7 +132,7 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, unsigned int uiMsg, WPARAM wParam, L
     SelectObject(hDC, font);
     ABCFLOAT abcf;
     GetCharABCWidthsFloat(hDC, 'a', 'a', &abcf);
-    int numCols = widthPixels / abcf.abcfB - 1;
+    int numCols = widthPixels / abcf.abcfB;
     updateLines(numCols);    
     drawLines(hDC);
     ReleaseDC(hWnd, hDC);
@@ -164,4 +147,3 @@ LRESULT CALLBACK WindowProcedure(HWND hWnd, unsigned int uiMsg, WPARAM wParam, L
   return DefWindowProc(hWnd, uiMsg, wParam, lParam);
 }
 
-#endif

@@ -313,7 +313,10 @@ void dsl_fprintf(FILE* stream, const char* format, ...) {
   std::vector<ConsistentContent> ccs;
   ASTPtr root = generateCCs(&ccs, format, &args);
   va_end(args);
-    
+  if (!root) {
+    return;
+  }
+
   for (int i = 0; i < root->numTotalLines; ++i) {
     for (ConsistentContent& cc : ccs) {
       cc.printContentLine(stream, i, root->numTotalLines);
@@ -328,6 +331,9 @@ void dsl_sprintf(std::string* str, const char* format, ...) {
   std::vector<ConsistentContent> ccs;
   ASTPtr root = generateCCs(&ccs, format, &args);
   va_end(args);
+  if (!root) {
+    return;
+  }
 
   int rootNumCols = root->endCol - root->startCol;
   str->resize((rootNumCols + 1) * root->numTotalLines);
@@ -347,6 +353,9 @@ void dsl_sprintf_lines(std::vector<std::string>* lines, const char* format, ...)
   std::vector<ConsistentContent> ccs;
   ASTPtr root = generateCCs(&ccs, format, &args);
   va_end(args);
+  if (!root) {
+    return;
+  }
 
   int rootNumCols = root->endCol - root->startCol;
   lines->resize(root->numTotalLines);
@@ -366,6 +375,9 @@ void dsl_sprintf_lines_append(std::vector<std::string>* lines, const char* forma
   std::vector<ConsistentContent> ccs;
   ASTPtr root = generateCCs(&ccs, format, &args);
   va_end(args);
+  if (!root) {
+    return;
+  }
 
   int rootNumCols = root->endCol - root->startCol;
   lines->reserve(lines->size() + root->numTotalLines);
