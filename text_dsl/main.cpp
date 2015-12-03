@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <vector>
 #include <string>
+#include <iostream>
 
 #include "dsl.h"
 
@@ -24,10 +25,22 @@ int linefunc(int line) {
 
 
 int main() {
+  string format;
+  while (true) {
+    cout << "Enter format string:" << endl;
+    getline(cin, format);
+
+    cout << endl;
+    dsl_fprintf(stdout, format.c_str(), s1, s2, s1, s2, s1, s2, s1, s2);
+    cout << endl << endl;
+  }
+
+  /*
   dsl_fprintf(stdout, "150[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
     &linefunc, s1, s2, s1);
 
   getchar();
+  */
   return 0;
 }
 
