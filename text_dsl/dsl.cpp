@@ -327,7 +327,7 @@ static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* forma
   return root;
 }
 
-void dsl_fprintf(FILE* stream, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
+void text_fprintf(FILE* stream, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
   va_start(args, lengthFuncs);  
   std::vector<ConsistentContent> ccs;
@@ -345,7 +345,7 @@ void dsl_fprintf(FILE* stream, const char* format, const char** wordSources, con
   }
 }
 
-void dsl_sprintf(std::string* str, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
+void text_sprintf(std::string* str, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
   va_start(args, lengthFuncs);
   std::vector<ConsistentContent> ccs;
@@ -367,7 +367,7 @@ void dsl_sprintf(std::string* str, const char* format, const char** wordSources,
   }  
 }
 
-void dsl_sprintf_lines(std::vector<std::string>* lines, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
+void text_sprintf_lines(std::vector<std::string>* lines, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
   va_start(args, lengthFuncs);
   std::vector<ConsistentContent> ccs;

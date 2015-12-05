@@ -34,16 +34,10 @@ int main() {
     int(*lengthFuncs[8])(int) = { &linefunc, &linefunc2, &linefunc, &linefunc2, &linefunc, &linefunc2, &linefunc, &linefunc2 };
 
     cout << endl;
-    dsl_fprintf(stdout, format.c_str(), wordSources, lengthFuncs, 80, "hello world");
+    text_fprintf(stdout, format.c_str(), wordSources, lengthFuncs, 80, "hello world");
     cout << endl << endl;
   }
 
-  /*
-  dsl_fprintf(stdout, "150[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]",
-    &linefunc, s1, s2, s1);
-
-  getchar();
-  */
   return 0;
 }
 
