@@ -7,6 +7,31 @@
 #include <cctype>
 #include <assert.h>
 
+
+int sprintf(std::string* str, const char* format, ...) {
+  va_list args;
+  va_start(args, format);
+  vsprintf(str, format, args);
+  va_end(args);
+}
+
+int vsprintf(std::string* str, const char* format, va_list args) {
+  str->resize(1024);
+  int sizeNeeded = vsnprintf(&str->front(), str->size(), format, args);
+  if (sizeNeeded < 0) {       // on Windows, vsnprintf will return -1 if not enough size
+    do {
+      str->resize(2 * str->size());
+      sizeNeeded = vsnprintf(&str->front(), str->size(), format, args);
+    } while (sizeNeeded < 0);
+  } else if (sizeNeeded + 1 > str->size()) { // on other platforms, vsnprintf will return the size required not including '\0'
+    str->resize(sizeNeeded + 1);
+    int n = vsnprintf(&str->front(), sizeNeeded + 1, format, args);
+    assert(n == sizeNeeded);
+  }
+  return sizeNeeded;
+}
+
+
 static bool isSpace(char c) {
   return (c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v');
 }
@@ -262,25 +287,10 @@ static ASTPtr parseFormat(const char** fptr, const char*** wordSourcesPtr, const
 }
 
 
-static void evaluatePrintf(const char* src, std::string* dst, va_list args) {
-  dst->resize(1024);
-  int sizeNeeded = vsnprintf(&dst->front(), dst->size(), src, args);
-  if (sizeNeeded < 0) {       // on Windows, vsnprintf will return -1 if not enough size
-    do {
-      dst->resize(2 * dst->size());
-      sizeNeeded = vsnprintf(&dst->front(), dst->size(), src, args);
-    } while (sizeNeeded < 0);
-  } else if (sizeNeeded > dst->size()) { // on other platforms, vsnprintf will return the size required
-    dst->resize(sizeNeeded);
-    int n = vsnprintf(&dst->front(), sizeNeeded, src, args);
-    assert(n == sizeNeeded);
-  }
-}
-
 static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* format, const char*** wordSourcesPtr, const LengthFunc** lengthFuncsPtr, va_list args) {
   ccs->clear();
   std::string evaluatedFormat;
-  evaluatePrintf(format, &evaluatedFormat, args);
+  vsprintf(&evaluatedFormat, format, args);
   const char* f_begin = evaluatedFormat.c_str();
   const char* f_at = f_begin;
   ASTPtr root;
