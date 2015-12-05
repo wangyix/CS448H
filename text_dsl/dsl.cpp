@@ -29,19 +29,19 @@ static int parseUint(const char** fptr) {
   return value;
 }
 
-// Used for parsing the next char within a char or string literal (denoted by single-quotes)
-// Can escape (with backslash) an apostrophe or a backslash; all other characters parsed as-is.
-static char parseCharInsideLiteral(const char** fptr) {
-  assert(**fptr != '\'');
+// Used for parsing the next char within a quote, surrounded by the specified quote character.
+// The quote character or the escape character can be escaped; every other char is read literally.
+static char parseCharInsideQuotes(const char** fptr, char quote) {
+  assert(**fptr != quote);
   char c = **fptr;
   if (c == '\0') {
     throw DSLException(*fptr, "Reached end of string; expected char.");
   }
   ++*fptr;
   if (c == '\\') {
-    // If the backslash is followed by an apostrophe or backslash, then both are parsed and the
+    // If the backslash is followed by the quote char or backslash, then both are parsed and the
     // second character is returned. Otherwise, only the backslash is parsed and returned as-is.
-    if (**fptr == '\'' || **fptr == '\\') {
+    if (**fptr == quote || **fptr == '\\') {
       c = **fptr;
       ++*fptr;
     }
@@ -55,7 +55,7 @@ static char parseCharLiteral(const char** fptr) {  // TOKEN
   if (**fptr == '\'') {
     throw DSLException(*fptr, "Exected char literial; found '' instead.");
   }
-  char c = parseCharInsideLiteral(&*fptr);
+  char c = parseCharInsideQuotes(&*fptr, '\'');
   if (**fptr != '\'') {
     throw DSLException(*fptr, "Expected closing ' for char literal.");
   }
@@ -71,7 +71,7 @@ static FillerPtr parseStringLiteral(const char** fptr) { // TOKEN
   const char* strBegin = *fptr;
   std::string str;
   while (**fptr != '\'') {
-    str += parseCharInsideLiteral(&*fptr);
+    str += parseCharInsideQuotes(&*fptr, '\'');
   }
   ++*fptr;
   parseWhitespaces(fptr);
@@ -89,9 +89,10 @@ static LiteralLength parseLiteralLength(const char** fptr) {
   return ll;
 }
 
-static FunctionLength parseFunctionLength(const char** fptr, va_list* args) {
+static FunctionLength parseFunctionLength(const char** fptr, const LengthFunc** lengthFuncsPtr) {
   assert(**fptr == '#');
-  FunctionLength fl(va_arg(*args, LengthFunc), false);
+  FunctionLength fl(**lengthFuncsPtr, false);
+  ++*lengthFuncsPtr;
   ++*fptr;
   if (**fptr == 's') {
     fl.shares = true;
@@ -121,11 +122,11 @@ static void parseFillers(const char** fptr, std::vector<FillerPtr>* fillers) {
   }
 }
 
-static ASTPtr parseRepeatedCharFL(const char** fptr, va_list* args) {
+static ASTPtr parseRepeatedCharFL(const char** fptr, const LengthFunc** lengthFuncsPtr) {
   assert(**fptr == '#');
   const char* f_at = *fptr;
   ASTPtr ast;
-  FunctionLength length = parseFunctionLength(fptr, args);
+  FunctionLength length = parseFunctionLength(fptr, lengthFuncsPtr);
   if (**fptr == '\'') {
     char c = parseCharLiteral(fptr);
     ast.reset(new RepeatedCharFL(f_at, length, c));
@@ -149,9 +150,10 @@ static char parseSilhouetteCharLiteral(const char** fptr) {
   return parseCharLiteral(fptr);
 }
 
-static ASTPtr parseWords(const char** fptr, va_list* args) {
+static ASTPtr parseWords(const char** fptr, const char*** wordSourcesPtr) {
   assert(**fptr == '{');
-  Words* words = new Words(*fptr, va_arg(*args, char*));
+  Words* words = new Words(*fptr, **wordSourcesPtr);
+  ++*wordSourcesPtr;
   ASTPtr ast(words);
   ++*fptr;
   parseWhitespaces(fptr); // { is a token
@@ -192,13 +194,13 @@ static void parseTopOrBottomFiller(const char** fptr, std::vector<FillerPtr>* fi
 }
 
 
-static ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
+static ASTPtr parseSpecifiedLengthContent(const char** fptr, const char*** wordSourcesPtr, const LengthFunc** lengthFuncsPtr) {
   assert(**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#');
   ASTPtr slc;
   if (**fptr == '\'') {
     slc = parseStringLiteral(fptr);
   } else if (**fptr == '#') {
-    slc = parseRepeatedCharFL(fptr, args);
+    slc = parseRepeatedCharFL(fptr, lengthFuncsPtr);
   } else {
     const char* f_at = *fptr;
     LiteralLength length = parseLiteralLength(fptr);
@@ -211,9 +213,9 @@ static ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
       parseWhitespaces(fptr); // [ is a token
       while (**fptr != ']') {
         if (**fptr == '\'' || std::isdigit(**fptr) || **fptr == '#') {
-          block->addChild(parseSpecifiedLengthContent(fptr, args));
+          block->addChild(parseSpecifiedLengthContent(fptr, wordSourcesPtr, lengthFuncsPtr));
         } else if (**fptr == '{') {
-          block->addWords(parseWords(fptr, args));
+          block->addWords(parseWords(fptr, wordSourcesPtr));
         } else {
           throw DSLException(*fptr, "Expected ', digit, or # to begin specified-length content, "
             "or { to begin greedy-length content.");
@@ -239,12 +241,12 @@ static ASTPtr parseSpecifiedLengthContent(const char** fptr, va_list* args) {
   return slc;
 }
 
-static ASTPtr parseFormat(const char** fptr, va_list* args) {
+static ASTPtr parseFormat(const char** fptr, const char*** wordSourcesPtr, const LengthFunc** lengthFuncsPtr) {
   parseWhitespaces(fptr);
   ASTPtr root;
   // top-level node must be some specified-length content other than repeated char with function length.
   if (**fptr == '\'' || std::isdigit(**fptr)) {
-    root = parseSpecifiedLengthContent(fptr, args);
+    root = parseSpecifiedLengthContent(fptr, wordSourcesPtr, lengthFuncsPtr);
   } else {
     throw DSLException(*fptr, "Expected ' or digit.");
   }
@@ -261,14 +263,14 @@ static ASTPtr parseFormat(const char** fptr, va_list* args) {
 }
 
 
-static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* format, va_list* args) {
+static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* format, const char*** wordSourcesPtr, const LengthFunc** lengthFuncsPtr) {
   ccs->clear();
   const char* f_at = format;
   ASTPtr root;
   try {
     //printf("\n\n%s\n", format);
 
-    root = parseFormat(&f_at, args);
+    root = parseFormat(&f_at, wordSourcesPtr, lengthFuncsPtr);
     root->convertLLSharesToLength();
     root->computeStartEndCols(0, root->getFixedLength());
 
@@ -307,11 +309,11 @@ static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* forma
   return root;
 }
 
-void dsl_fprintf(FILE* stream, const char* format, ...) {
+void dsl_fprintf(FILE* stream, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
   va_start(args, format);
   std::vector<ConsistentContent> ccs;
-  ASTPtr root = generateCCs(&ccs, format, &args);
+  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs);
   va_end(args);
   if (!root) {
     return;
@@ -325,11 +327,11 @@ void dsl_fprintf(FILE* stream, const char* format, ...) {
   }
 }
 
-void dsl_sprintf(std::string* str, const char* format, ...) {
+void dsl_sprintf(std::string* str, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
   va_start(args, format);
   std::vector<ConsistentContent> ccs;
-  ASTPtr root = generateCCs(&ccs, format, &args);
+  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs);
   va_end(args);
   if (!root) {
     return;
@@ -347,11 +349,11 @@ void dsl_sprintf(std::string* str, const char* format, ...) {
   }  
 }
 
-void dsl_sprintf_lines(std::vector<std::string>* lines, const char* format, ...) {
+void dsl_sprintf_lines(std::vector<std::string>* lines, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
   va_start(args, format);
   std::vector<ConsistentContent> ccs;
-  ASTPtr root = generateCCs(&ccs, format, &args);
+  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs);
   va_end(args);
   if (!root) {
     return;
@@ -369,11 +371,11 @@ void dsl_sprintf_lines(std::vector<std::string>* lines, const char* format, ...)
   }
 }
 
-void dsl_sprintf_lines_append(std::vector<std::string>* lines, const char* format, ...) {
+void dsl_sprintf_lines_append(std::vector<std::string>* lines, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
   va_start(args, format);
   std::vector<ConsistentContent> ccs;
-  ASTPtr root = generateCCs(&ccs, format, &args);
+  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs);
   va_end(args);
   if (!root) {
     return;

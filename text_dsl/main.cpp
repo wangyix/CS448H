@@ -17,6 +17,9 @@ char* s2 = "The lufwood was burning very well. Purple flames blazed all round th
 char* s3 = "\n";
 
 int linefunc(int line) {
+  return line % 4;
+}
+int linefunc2(int line) {
   return line % 8;
 }
 
@@ -26,8 +29,12 @@ int main() {
     cout << "Enter format string:" << endl;
     getline(cin, format);
 
+
+    const char* wordSources[8] = { s1, s2, s1, s2, s1, s2, s1, s2 };
+    int(*lengthFuncs[8])(int) = { &linefunc, &linefunc2, &linefunc, &linefunc2, &linefunc, &linefunc2, &linefunc, &linefunc2 };
+
     cout << endl;
-    dsl_fprintf(stdout, format.c_str(), s1, &linefunc, s2);
+    dsl_fprintf(stdout, format.c_str(), wordSources, lengthFuncs);
     cout << endl << endl;
   }
 
@@ -57,9 +64,11 @@ void updateLines(int numCols) {
   string borderFormat = to_string(numCols) + borderFormatNoLength;
   lines.clear();
   //dsl_sprintf(&lines, format.c_str(), &linefunc, s1, s2, s1);
-  dsl_sprintf_lines_append(&lines, textFormat.c_str(), s1, s2, s1);
-  dsl_sprintf_lines_append(&lines, borderFormat.c_str());
-  dsl_sprintf_lines_append(&lines, textFormat.c_str(), s2, s1, s2);
+  const char* wordSources[3] = { s1, s2, s1 };
+  const char* wordSources2[3] = { s2, s1, s2 };
+  dsl_sprintf_lines_append(&lines, textFormat.c_str(), wordSources, NULL);
+  dsl_sprintf_lines_append(&lines, borderFormat.c_str(), NULL, NULL);
+  dsl_sprintf_lines_append(&lines, textFormat.c_str(), wordSources2, NULL);
 }
 
 
