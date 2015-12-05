@@ -325,7 +325,7 @@ void AST::flatten(ASTPtr self, ASTPtr parent, std::vector<ConsistentContent>* cc
   bool startNewCC;
   bool newCCChildrenConsistent;
   
-  if (ccs->empty() || firstAfterBlockBoundary) {
+  if (firstAfterBlockBoundary) {
     startNewCC = true;
     newCCChildrenConsistent = (endCol != UNKNOWN_COL);
   } else {
