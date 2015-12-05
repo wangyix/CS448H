@@ -242,25 +242,24 @@ static ASTPtr parseSpecifiedLengthContent(const char** fptr, const char*** wordS
 
 static ASTPtr parseFormat(const char** fptr, const char*** wordSourcesPtr, const LengthFunc** lengthFuncsPtr) {
   parseWhitespaces(fptr);
-  ASTPtr root;
-  // top-level node must be some specified-length content other than repeated char with function length.
-  if (**fptr == '\'' || std::isdigit(**fptr)) {
-    root = parseSpecifiedLengthContent(fptr, wordSourcesPtr, lengthFuncsPtr);
-  } else {
-    throw DSLException(*fptr, "Expected ' or digit.");
+  // Will insert all root content as children into a super-root Block.
+  Block* rootsParentBlock = new Block(*fptr, LiteralLength(0, false));
+  ASTPtr rootsParent(rootsParentBlock);
+  while (**fptr != '\0') {
+    if (**fptr == '\'' || std::isdigit(**fptr)) {
+      ASTPtr root = parseSpecifiedLengthContent(fptr, wordSourcesPtr, lengthFuncsPtr);
+      int rootLength = root->getFixedLength();
+      if (rootLength == UNKNOWN_COL) {
+        throw DSLException(root->f_at, "Root content must be fixed-length.");
+      }
+      rootsParentBlock->addChild(std::move(root));
+      rootsParentBlock->length.value += rootLength;
+    } else {
+      throw DSLException(*fptr, "Expected ' or digit.");
+    }
   }
-  if (**fptr != '\0') {
-    throw DSLException(*fptr, "Unexpected character before end of format string.");
-  }
-  /*if (root->type != BLOCK) {
-    throw DSLException(root->f_at, "Root content must be a block.");
-  }*/
-  if (root->getFixedLength() == UNKNOWN_COL) {
-    throw DSLException(root->f_at, "Root content must be fixed-length.");
-  }
-  return root;
+  return rootsParent;
 }
-
 
 
 static void evaluatePrintf(const char* src, std::string* dst, va_list args) {
