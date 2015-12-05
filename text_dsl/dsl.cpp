@@ -68,7 +68,6 @@ static FillerPtr parseStringLiteral(const char** fptr) { // TOKEN
   assert(**fptr == '\'');
   const char* f_at = *fptr;
   ++*fptr;
-  const char* strBegin = *fptr;
   std::string str;
   while (**fptr != '\'') {
     str += parseCharInsideQuotes(&*fptr, '\'');
@@ -263,9 +262,28 @@ static ASTPtr parseFormat(const char** fptr, const char*** wordSourcesPtr, const
 }
 
 
-static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* format, const char*** wordSourcesPtr, const LengthFunc** lengthFuncsPtr) {
+
+static void evaluatePrintf(const char* src, std::string* dst, va_list args) {
+  dst->resize(1024);
+  int sizeNeeded = vsnprintf(&dst->front(), dst->size(), src, args);
+  if (sizeNeeded < 0) {       // on Windows, vsnprintf will return -1 if not enough size
+    do {
+      dst->resize(2 * dst->size());
+      sizeNeeded = vsnprintf(&dst->front(), dst->size(), src, args);
+    } while (sizeNeeded < 0);
+  } else if (sizeNeeded > dst->size()) { // on other platforms, vsnprintf will return the size required
+    dst->resize(sizeNeeded);
+    int n = vsnprintf(&dst->front(), sizeNeeded, src, args);
+    assert(n == sizeNeeded);
+  }
+}
+
+static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* format, const char*** wordSourcesPtr, const LengthFunc** lengthFuncsPtr, va_list args) {
   ccs->clear();
-  const char* f_at = format;
+  std::string evaluatedFormat;
+  evaluatePrintf(format, &evaluatedFormat, args);
+  const char* f_begin = evaluatedFormat.c_str();
+  const char* f_at = f_begin;
   ASTPtr root;
   try {
     //printf("\n\n%s\n", format);
@@ -298,12 +316,12 @@ static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* forma
     //printf("\n\n");
 
   } catch (DSLException& e) {
-    fprintf(stderr, "%s\n", format);
-    for (int i = 0; i < e.f_at - format; ++i) {
+    fprintf(stderr, "%s\n", f_begin);
+    for (int i = 0; i < e.f_at - f_begin; ++i) {
       fputc(' ', stderr);
     }
     fprintf(stderr, "^\n");
-    fprintf(stderr, "Error at %d: %s\n", e.f_at - format, e.what());
+    fprintf(stderr, "Error at %d: %s\n", e.f_at - f_begin, e.what());
   }
 
   return root;
@@ -311,9 +329,9 @@ static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* forma
 
 void dsl_fprintf(FILE* stream, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
-  va_start(args, format);
+  va_start(args, lengthFuncs);  
   std::vector<ConsistentContent> ccs;
-  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs);
+  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs, args);
   va_end(args);
   if (!root) {
     return;
@@ -329,9 +347,9 @@ void dsl_fprintf(FILE* stream, const char* format, const char** wordSources, con
 
 void dsl_sprintf(std::string* str, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
-  va_start(args, format);
+  va_start(args, lengthFuncs);
   std::vector<ConsistentContent> ccs;
-  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs);
+  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs, args);
   va_end(args);
   if (!root) {
     return;
@@ -351,9 +369,9 @@ void dsl_sprintf(std::string* str, const char* format, const char** wordSources,
 
 void dsl_sprintf_lines(std::vector<std::string>* lines, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
-  va_start(args, format);
+  va_start(args, lengthFuncs);
   std::vector<ConsistentContent> ccs;
-  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs);
+  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs, args);
   va_end(args);
   if (!root) {
     return;
@@ -373,9 +391,9 @@ void dsl_sprintf_lines(std::vector<std::string>* lines, const char* format, cons
 
 void dsl_sprintf_lines_append(std::vector<std::string>* lines, const char* format, const char** wordSources, const LengthFunc* lengthFuncs, ...) {
   va_list args;
-  va_start(args, format);
+  va_start(args, lengthFuncs);
   std::vector<ConsistentContent> ccs;
-  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs);
+  ASTPtr root = generateCCs(&ccs, format, &wordSources, &lengthFuncs, args);
   va_end(args);
   if (!root) {
     return;

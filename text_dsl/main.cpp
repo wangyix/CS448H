@@ -34,7 +34,7 @@ int main() {
     int(*lengthFuncs[8])(int) = { &linefunc, &linefunc2, &linefunc, &linefunc2, &linefunc, &linefunc2, &linefunc, &linefunc2 };
 
     cout << endl;
-    dsl_fprintf(stdout, format.c_str(), wordSources, lengthFuncs);
+    dsl_fprintf(stdout, format.c_str(), wordSources, lengthFuncs, 80, "hello world");
     cout << endl << endl;
   }
 
@@ -55,20 +55,18 @@ const int fontPointSize = 10;
 int widthPixels, heightPixels;
 
 //string formatNoLength = "[ 1s[1s'_']^{1s'@'}v{1s'@'}  ' [''?''] '   5s[ 1s[#' '{w' '1s' '}1s' ']^{1s'^'}v{1s'v'} ' | ' 1s[1s' '{w' '}1s' ' ]^{'='1s'^'}v{2s'v''-'} ' | ' 40[1s' '{w' '}]^{'WEW'1s'^'}v{1s'v''LAD'} ]^{1s'<'}v{1s'>'}     ]";
-string textFormatNoLength = "[' ' 1s[{w' '}1s' ']^{}v{1s'.'} ' | ' 1s[1s' '{w' '1s' '}]^{1s' ''='}v{'='1s' '} ' @ ' 1s[1s' '{w'::'}]^{1s' '}v{1s' '} ' ']";
-string borderFormatNoLength = "[' ' 1s'-' ' + ' 1s'-' ' @ ' 1s'-' ' ']";
+string textFormat = "%d[' ' 1s[{w' '}1s' ']^{}v{1s'.'} ' | ' 1s[1s' '{w' '1s' '}]^{1s' ''='}v{'='1s' '} ' @ ' 1s[1s' '{w'::'}]^{1s' '}v{1s' '} ' ']";
+string borderFormat = "%d[' ' 1s'-' ' + ' 1s'-' ' @ ' 1s'-' ' ']";
 vector<string> lines;
 
 void updateLines(int numCols) {
-  string textFormat = to_string(numCols) + textFormatNoLength;
-  string borderFormat = to_string(numCols) + borderFormatNoLength;
   lines.clear();
   //dsl_sprintf(&lines, format.c_str(), &linefunc, s1, s2, s1);
   const char* wordSources[3] = { s1, s2, s1 };
   const char* wordSources2[3] = { s2, s1, s2 };
-  dsl_sprintf_lines_append(&lines, textFormat.c_str(), wordSources, NULL);
-  dsl_sprintf_lines_append(&lines, borderFormat.c_str(), NULL, NULL);
-  dsl_sprintf_lines_append(&lines, textFormat.c_str(), wordSources2, NULL);
+  dsl_sprintf_lines_append(&lines, textFormat.c_str(), wordSources, NULL, numCols);
+  dsl_sprintf_lines_append(&lines, borderFormat.c_str(), NULL, NULL, numCols);
+  dsl_sprintf_lines_append(&lines, textFormat.c_str(), wordSources2, NULL, numCols);
 }
 
 
