@@ -331,6 +331,8 @@ static ASTPtr generateCCs(std::vector<ConsistentContent>* ccs, const char* forma
     }
     fprintf(stderr, "^\n");
     fprintf(stderr, "Error at %d: %s\n", e.f_at - f_begin, e.what());
+    
+    return ASTPtr();
   }
 
   return root;
@@ -348,11 +350,14 @@ void text_printf(const char* format, const char** wordSources, const LengthFunc*
     return;
   }
 
-  for (int i = 0; i < root->numTotalLines; ++i) {
+  for (ConsistentContent& cc : ccs) {
+    cc.printContentLine(stdout, 0, root->numTotalLines);
+  }
+  for (int i = 1; i < root->numTotalLines; ++i) {
+    printf("\n");
     for (ConsistentContent& cc : ccs) {
       cc.printContentLine(stdout, i, root->numTotalLines);
     }
-    printf("\n");
   }
 }
 
@@ -366,11 +371,14 @@ void text_fprintf(FILE* stream, const char* format, const char** wordSources, co
     return;
   }
 
-  for (int i = 0; i < root->numTotalLines; ++i) {
+  for (ConsistentContent& cc : ccs) {
+    cc.printContentLine(stream, 0, root->numTotalLines);
+  }
+  for (int i = 1; i < root->numTotalLines; ++i) {
+    fprintf(stream, "\n");
     for (ConsistentContent& cc : ccs) {
       cc.printContentLine(stream, i, root->numTotalLines);
     }
-    fprintf(stream, "\n");
   }
 }
 
@@ -385,14 +393,17 @@ void text_sprintf(std::string* str, const char* format, const char** wordSources
   }
 
   int rootNumCols = root->endCol - root->startCol;
-  str->resize((rootNumCols + 1) * root->numTotalLines);
+  str->resize((rootNumCols + 1) * root->numTotalLines - 1);
   char* bufAt = &str->front();
-  for (int i = 0; i < root->numTotalLines; ++i) {
+  for (ConsistentContent& cc : ccs) {
+    cc.printContentLine(&bufAt, 0, root->numTotalLines);
+  }
+  for (int i = 1; i < root->numTotalLines; ++i) {
+    *bufAt = '\n';
+    ++bufAt;
     for (ConsistentContent& cc : ccs) {
       cc.printContentLine(&bufAt, i, root->numTotalLines);
     }
-    *bufAt = '\n';
-    ++bufAt;
   }  
 }
 
