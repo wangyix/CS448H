@@ -11,8 +11,9 @@
 int sprintf(std::string* str, const char* format, ...) {
   va_list args;
   va_start(args, format);
-  vsprintf(str, format, args);
+  int ret = vsprintf(str, format, args);
   va_end(args);
+  return ret;
 }
 
 int vsprintf(std::string* str, const char* format, va_list args) {
@@ -55,7 +56,7 @@ static int parseUint(const char** fptr) {
 }
 
 // Used for parsing the next char within a quote, surrounded by the specified quote character.
-// The quote character or the escape character can be escaped; every other char is read literally.
+// Any character can be escaped by a preceding backslash; only the escaped character is returned.
 static char parseCharInsideQuotes(const char** fptr, char quote) {
   assert(**fptr != quote);
   char c = **fptr;
@@ -64,12 +65,9 @@ static char parseCharInsideQuotes(const char** fptr, char quote) {
   }
   ++*fptr;
   if (c == '\\') {
-    // If the backslash is followed by the quote char or backslash, then both are parsed and the
-    // second character is returned. Otherwise, only the backslash is parsed and returned as-is.
-    if (**fptr == quote || **fptr == '\\') {
-      c = **fptr;
-      ++*fptr;
-    }
+    // parse and return the character directly after the backslash.
+    c = **fptr;
+    ++*fptr;
   }
   return c;
 }
