@@ -8,13 +8,29 @@
 
 using namespace std;
 
-char* s1 = "Candy had always prided herself upon having a vivid imagination. When, for instance, she privately compared her dreams with those her brothers described over the breakfast table, or her friends at school exchanged at break, she always discovered her own night visions were a lot wilder and weirder than anybody else's. But there was nothing she could remember dreaming -- by day or night -- that came close to the sight that greeted her in The Great Head of the Yebba Dim Day."
-"\nIt was a city, a city built from the litter of the sea. The street beneath her feet was made from timbers that had clearly been in the water for a long time, and the walls were lined with barnacle - encrusted stone.There were three columns supporting the roof, made of coral fragments cemented together.They were buzzing hives of life unto themselves; their elaborately constructed walls pierced with dozens of windows, from which light poured.";
+const char* s1 = "Candy had always prided herself upon having a vivid imagination. When, for instance, \
+                 she privately compared her dreams with those her brothers described over the breakfast \
+                 table, or her friends at school exchanged at break, she always discovered her own \
+                 night visions were a lot wilder and weirder than anybody else's. But there was nothing \
+                 she could remember dreaming -- by day or night -- that came close to the sight that \
+                 greeted her in The Great Head of the Yebba Dim Day."
 
-char* s2 = "The lufwood was burning very well. Purple flames blazed all round the stubby logs as they bumped and tumbled around inside the stove."
-"\nThe woodtrolls had many types of wood to choose from and each had its own special properties.Scentwood, for instance, burned with a fragrance that sent those who breathed it drifting into a dream - filled sleep, while wood from the silvery - turquoise lullabee tree sang as the flames lapped at its bark - strange mournful songs, they were, and not at all to everyone’s taste.And then there was the bloodoak, complete with its parasitic sidekick, a barbed creeper known as tarry vine.";
+;
 
-char* s3 = "\n";
+const char* s2 = "The lufwood was burning very well. Purple flames blazed all round the stubby logs as \
+                 they bumped and tumbled around inside the stove.\n\
+                 The woodtrolls had many types of wood to choose from and each had its own special \
+                 properties.Scentwood, for instance, burned with a fragrance that sent those who breathed \
+                 it drifting into a dream - filled sleep, while wood from the silvery - turquoise \
+                 lullabee tree sang as the flames lapped at its bark - strange mournful songs, they were, \
+                 and not at all to everyone’s taste.And then there was the bloodoak, complete with its \
+                 parasitic sidekick, a barbed creeper known as tarry vine.";
+
+const char* s3 = "The Castle had started life as a small village. Being so near to the Forest the \
+                 villagers had put up some tall stone walls for protection against the wolverines, \
+                 witches and warlocks who thought nothing of stealing their sheep, chickens and \
+                 occasionally their children. As more houses were built, the walls were extended \
+                 and a deep moat was dug so that all could feel safe.";
 
 int linefunc(int line) {
   return line % 4;
@@ -23,18 +39,19 @@ int linefunc2(int line) {
   return line % 8;
 }
 
-int main() {
+
+int main() {  
+
+  const char* wordSources[8] = { s1, s2, s3, s1, s2, s3, s1, s2 };
+  int(*lengthFuncs[8])(int) = { &linefunc, &linefunc2, &linefunc, &linefunc2, &linefunc, &linefunc2, &linefunc, &linefunc2 };
+
   string format;
   while (true) {
     cout << "Enter format string:" << endl;
     getline(cin, format);
 
-
-    const char* wordSources[8] = { s1, s2, s1, s2, s1, s2, s1, s2 };
-    int(*lengthFuncs[8])(int) = { &linefunc, &linefunc2, &linefunc, &linefunc2, &linefunc, &linefunc2, &linefunc, &linefunc2 };
-
     cout << endl;
-    text_fprintf(stdout, format.c_str(), wordSources, lengthFuncs, 80, "hello world");
+    text_printf(format.c_str(), wordSources, lengthFuncs, 80, "hello world");
     cout << endl << endl;
   }
 
@@ -56,11 +73,11 @@ vector<string> lines;
 void updateLines(int numCols) {
   lines.clear();
   //dsl_sprintf(&lines, format.c_str(), &linefunc, s1, s2, s1);
-  const char* wordSources[3] = { s1, s2, s1 };
-  const char* wordSources2[3] = { s2, s1, s2 };
-  dsl_sprintf_lines_append(&lines, textFormat.c_str(), wordSources, NULL, numCols);
-  dsl_sprintf_lines_append(&lines, borderFormat.c_str(), NULL, NULL, numCols);
-  dsl_sprintf_lines_append(&lines, textFormat.c_str(), wordSources2, NULL, numCols);
+  const char* wordSources[3] = { s1, s2, s3 };
+  const char* wordSources2[3] = { s2, s3, s1 };
+  text_sprintf_lines_append(&lines, textFormat.c_str(), wordSources, NULL, numCols);
+  text_sprintf_lines_append(&lines, borderFormat.c_str(), NULL, NULL, numCols);
+  text_sprintf_lines_append(&lines, textFormat.c_str(), wordSources2, NULL, numCols);
 }
 
 
